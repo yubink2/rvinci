@@ -1,0 +1,16 @@
+<launch>
+
+  <arg name="start_hydra" default="true" />
+  <arg name="radius" default="3.0" />
+
+  <include file="$(find interaction_cursor_demo)/launch/interaction.launch" >
+    <arg name="radius" value="$(arg radius)" />
+    <arg name="start_hydra" value="$(arg start_hydra)" />
+  </include>
+
+  <include file="$(find interaction_cursor_demo)/launch/rviz.launch" >
+  </include>
+
+  <node name="basic_controls" type="basic_controls" pkg="interactive_marker_tutorials" />
+
+</launch>
