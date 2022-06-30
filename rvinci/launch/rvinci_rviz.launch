@@ -1,4 +1,5 @@
 <launch>
   <node name="rviz" pkg="rviz" type="rviz"
-         args="-d $(find rvinci)/launch/rvinci.rviz" />
+         args="-d $(find rvinci)/launch/rvinci.rviz" 
+         output="screen" />
 </launch>

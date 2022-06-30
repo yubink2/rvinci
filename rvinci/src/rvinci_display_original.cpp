@@ -193,13 +193,12 @@ void rvinciDisplay::pubsubSetup()
   ROS_INFO_STREAM("*** SUBTOPIC: "<<subtopic);
 
   subscriber_input_ = nh_.subscribe<rvinci_input_msg::rvinci_input>(subtopic, 10, boost::bind(&rvinciDisplay::inputCallback,this,_1));
+  // subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/stereo/left/image_color", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
+  // subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/stereo/right/image_color", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
   subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
-  // subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
-  // subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
-  subscriber_MTML_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTML/measured_cp", 10, boost::bind(&rvinciDisplay::MTMLCallback,this,_1));
-  subscriber_MTMR_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTMR/measured_cp", 10, boost::bind(&rvinciDisplay::MTMRCallback,this,_1));
+  // subscriber_clutch_ = nh_.subscribe( "/footpedals/clutch", 10, rvinciDisplay::clutchCallback);
 
   publisher_rhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_right/update",10);
   publisher_lhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_left/update",10);
@@ -585,86 +584,9 @@ void rvinciDisplay::makeMarker()
   marker_pub.publish(marker);
 }
 
-void rvinciDisplay::deleteMarker()
-{
-  // std::cout<<marker_pub.getTopic()<<std::endl;
-  ROS_INFO_STREAM("*** DELETE MARKER");
-
-  visualization_msgs::Marker marker;
-  marker.header.frame_id = "base_link";
-  marker.header.stamp = ros::Time::now();
-  marker.ns = "basic_shapes";
-  marker.id = 0;
-
-  marker.type = visualization_msgs::Marker::CUBE;
-  marker.action = visualization_msgs::Marker::DELETE;
-
-  marker.lifetime = ros::Duration();
-  marker_pub.publish(marker);
-}
-
 void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg) 
 {
   ROS_INFO_STREAM("*** CLUTCH CALLBACK");
-  // buttons: 0 - released, 1 - pressed, 2 - quick tap
-  if (!marker_deleted) { marker_deleted = true; }
-  else { deleteMarker(); }
-}
-
-void rvinciDisplay::publishLeftCursorUpdate()
-{
-  //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
-  std::string frame = context_->getFixedFrame().toStdString();
-  interaction_cursor_msgs::InteractionCursorUpdate lhcursor;
-
-  lhcursor.pose.header.frame_id = frame;
-  lhcursor.pose.header.stamp = ros::Time::now();
-  lhcursor.pose.pose = cursor_[_LEFT];
-  // lhcursor.button_state = grab[_LEFT];
-
-  publisher_lhcursor_.publish(lhcursor);
-}
-
-void rvinciDisplay::publishRightCursorUpdate()
-{
-  //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
-  std::string frame = context_->getFixedFrame().toStdString();
-  interaction_cursor_msgs::InteractionCursorUpdate rhcursor;
-
-  rhcursor.pose.header.frame_id = frame;
-  rhcursor.pose.header.stamp = ros::Time::now();
-  rhcursor.pose.pose = cursor_[_RIGHT];
-  // lhcursor.button_state = grab[_LEFT];
-
-  publisher_rhcursor_.publish(rhcursor);
-}
-
-void rvinciDisplay::MTMLCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
-{
-  Ogre::Vector3 input = Ogre::Vector3(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
-  input *= prop_input_scalar_->getVector();
-
-  ROS_INFO_STREAM("*** left cursor pose"<<input.x<<" "<<input.y<<" "<<input.z);
-  
-  cursor_[_LEFT].position.x = input.x;
-  cursor_[_LEFT].position.y = input.y;
-  cursor_[_LEFT].position.z = input.z;
-  cursor_[_LEFT].orientation.x = msg->pose.orientation.x;
-  cursor_[_LEFT].orientation.y = msg->pose.orientation.y;
-  cursor_[_LEFT].orientation.z = msg->pose.orientation.z;
-  publishLeftCursorUpdate();
-}
-
-void rvinciDisplay::MTMRCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
-{
-  // ROS_INFO_STREAM("*** MTMR pose"<<msg->pose.position.x<<" "<<msg->pose.position.y<<" "<<msg->pose.position.z);
-  cursor_[_RIGHT].position.x = msg->pose.position.x;
-  cursor_[_RIGHT].position.y = msg->pose.position.y;
-  cursor_[_RIGHT].position.z = msg->pose.position.z;
-  cursor_[_RIGHT].orientation.x = msg->pose.orientation.x;
-  cursor_[_RIGHT].orientation.y = msg->pose.orientation.y;
-  cursor_[_RIGHT].orientation.z = msg->pose.orientation.z;
-  publishRightCursorUpdate();
 }
 
 }//namespace rvinci

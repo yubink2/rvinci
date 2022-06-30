@@ -42,8 +42,10 @@
 #include <OgreRectangle2D.h>
 #include <OgreTexture.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/Joy.h>
 
 #include <visualization_msgs/Marker.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
 
@@ -132,14 +134,21 @@ private:
   void inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr& r_input);
   void leftCallback(const sensor_msgs::ImageConstPtr& img);
   void rightCallback(const sensor_msgs::ImageConstPtr& img);
+  void clutchCallback(const sensor_msgs::Joy::ConstPtr& msg);
+  void MTMLCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+  void MTMRCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
+  void publishLeftCursorUpdate();
+  void publishRightCursorUpdate();
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
 
   //visualization
   void makeMarker();
+  void deleteMarker();
 
+  bool marker_deleted;
 
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
@@ -175,6 +184,9 @@ private:
   ros::Subscriber subscriber_input_;
   ros::Subscriber subscriber_lcam_;
   ros::Subscriber subscriber_rcam_;
+  ros::Subscriber subscriber_clutch_;
+  ros::Subscriber subscriber_MTML_;
+  ros::Subscriber subscriber_MTMR_;
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
   ros::Publisher pub_robot_state_[2];
