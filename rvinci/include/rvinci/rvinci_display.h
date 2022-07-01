@@ -139,8 +139,6 @@ private:
   void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
-  void publishLeftCursorUpdate();
-  void publishRightCursorUpdate();
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
 

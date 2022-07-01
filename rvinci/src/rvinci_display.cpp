@@ -594,34 +594,6 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
   rvmsg_.clutch = msg->buttons[0];
 }
 
-void rvinciDisplay::publishLeftCursorUpdate()
-{
-  //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
-  std::string frame = context_->getFixedFrame().toStdString();
-  interaction_cursor_msgs::InteractionCursorUpdate lhcursor;
-
-  lhcursor.pose.header.frame_id = frame;
-  lhcursor.pose.header.stamp = ros::Time::now();
-  lhcursor.pose.pose = cursor_[_LEFT];
-  // lhcursor.button_state = grab[_LEFT];
-
-  publisher_lhcursor_.publish(lhcursor);
-}
-
-void rvinciDisplay::publishRightCursorUpdate()
-{
-  //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
-  std::string frame = context_->getFixedFrame().toStdString();
-  interaction_cursor_msgs::InteractionCursorUpdate rhcursor;
-
-  rhcursor.pose.header.frame_id = frame;
-  rhcursor.pose.header.stamp = ros::Time::now();
-  rhcursor.pose.pose = cursor_[_RIGHT];
-  // lhcursor.button_state = grab[_LEFT];
-
-  publisher_rhcursor_.publish(rhcursor);
-}
-
 void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
 {
   //Offsets to set davinci at 0 x and y, with an x offset for each gripper.
