@@ -161,6 +161,13 @@ void rvinciDisplay::onInitialize()
   target_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
   image_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode("Background");
 
+  // cursor_[_LEFT].position.x = -0.6 * 5;  // initial cursor positions
+  // cursor_[_LEFT].position.y = 0;
+  // cursor_[_LEFT].position.z = 0;
+  // cursor_[_RIGHT].position.x = 0.6 * 5;
+  // cursor_[_RIGHT].position.y = 0;
+  // cursor_[_RIGHT].position.z = 0;
+
   pubsubSetup();
 }
 void rvinciDisplay::update(float wall_dt, float ros_dt)
@@ -179,18 +186,21 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
     texture_[1]->getBuffer()->blitFromMemory( backgroundImage_[1]->getPixelBox(), b );
   }
 
-  cameraUpdate();
+  // cameraUpdate();
   window_ = render_widget_->getRenderWindow();
   window_->update(false);
 
-  makeMarker();
+  // makeMarker();
+  rvmsg_.header.stamp = ros::Time::now();
+  publisher_rvinci_.publish(rvmsg_);
 }
 
 //void rvinciDisplay::reset(){}
 void rvinciDisplay::pubsubSetup()
 {
   std::string subtopic = prop_ros_topic_->getStdString();
-  ROS_INFO_STREAM("*** SUBTOPIC: "<<subtopic);
+  // ROS_INFO_STREAM("*** SUBTOPIC: "<<subtopic);
+  rvmsg_.header.frame_id = "base_link";
 
   subscriber_input_ = nh_.subscribe<rvinci_input_msg::rvinci_input>(subtopic, 10, boost::bind(&rvinciDisplay::inputCallback,this,_1));
   subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
@@ -198,8 +208,8 @@ void rvinciDisplay::pubsubSetup()
   // subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
   // subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
-  subscriber_MTML_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTML/measured_cp", 10, boost::bind(&rvinciDisplay::MTMLCallback,this,_1));
-  subscriber_MTMR_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTMR/measured_cp", 10, boost::bind(&rvinciDisplay::MTMRCallback,this,_1));
+  subscriber_MTML_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTML/measured_cp", 10, boost::bind(&rvinciDisplay::MTMCallback,this,_1, _LEFT));
+  subscriber_MTMR_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTMR/measured_cp", 10, boost::bind(&rvinciDisplay::MTMCallback,this,_1, _RIGHT));
 
   publisher_rhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_right/update",10);
   publisher_lhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_left/update",10);
@@ -207,6 +217,7 @@ void rvinciDisplay::pubsubSetup()
   pub_robot_state_[_RIGHT] = nh_.advertise<std_msgs::String>("/dvrk/MTMR/set_robot_state",10);
   
   marker_pub = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+  publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
 }
 
 void rvinciDisplay::leftCallback(const sensor_msgs::ImageConstPtr& img){
@@ -312,7 +323,6 @@ void rvinciDisplay::gravityCompensation()
   {
     msg.data = "DVRK_READY";
   }
-  ROS_INFO_STREAM("*** GRAVITY COMPENSATION: "<<msg.data);
 
   pub_robot_state_[_LEFT].publish(msg);
   pub_robot_state_[_RIGHT].publish(msg);
@@ -327,12 +337,12 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
   camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
-  ROS_INFO_STREAM("*** CLUTCH MODE? "<<clutch_mode_);
-  ROS_INFO_STREAM("*** CAMERA MODE? "<<camera_mode_);
+  // ROS_INFO_STREAM("*** CLUTCH MODE? "<<clutch_mode_);
+  // ROS_INFO_STREAM("*** CAMERA MODE? "<<camera_mode_);
 
   if(!clutch_mode_)
   {
-    Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
+    // Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
     int grab[2];
     for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
     {
@@ -342,60 +352,31 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
       input_pos_[i]*=prop_input_scalar_->getVector();
       inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
-      inori[i]= camor*(orshift*inori[i]);
+      // inori[i]= camor*(orshift*inori[i]);
 
-      input_change_[i] = camor*(input_pos_[i] - old_input);
+      input_change_[i] = (input_pos_[i] - old_input);
     }
 
-    if (!camera_mode_)
+    geometry_msgs::Pose curspose;
+
+    for (int i = 0; i<2; ++i)
     {
-      geometry_msgs::Pose curspose;
-
-      for (int i = 0; i<2; ++i)
-      {
-        cursor_[i].position.x += input_change_[i].x;
-        cursor_[i].position.y += input_change_[i].y;
-        cursor_[i].position.z += input_change_[i].z;
-        cursor_[i].orientation.x = inori[i].x;
-        cursor_[i].orientation.y = inori[i].y;
-        cursor_[i].orientation.z = inori[i].z;
-        cursor_[i].orientation.w = inori[i].w;
-        grab[i] = getaGrip(r_input->gripper[i].grab, i);
-      }
-        publishCursorUpdate(grab);
-        /*
-         * inital_vect is constantly calculated, to set origin vector between grippers when
-         * camera mode is triggered.
-         */
-        initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
-        initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
+      cursor_[i].position.x += input_change_[i].x;
+      cursor_[i].position.y += input_change_[i].y;
+      cursor_[i].position.z += input_change_[i].z;
+      cursor_[i].orientation.x = inori[i].x;
+      cursor_[i].orientation.y = inori[i].y;
+      cursor_[i].orientation.z = inori[i].z;
+      cursor_[i].orientation.w = inori[i].w;
+      grab[i] = getaGrip(r_input->gripper[i].grab, i);
     }
-    else
-      {
-        /*
-         * When camera mode is activated, cursor positions are reinitialized around the camera node,
-         * similar to the orientation of the grippers in real life. This gives an intuitive feel, so
-         * when the cameras are moved, the cursors appear on screen similarly to where your hands are
-         * positioned in real life.
-         */
-        cameraUpdate();
-        Ogre::Vector3 cursp[2];
-        Ogre::Vector3 campos = camera_node_->getPosition();
-        for (int i = 0; i<2; ++i)
-      {
-        cursp[i] = camera_[_LEFT]->getRealOrientation()*(input_pos_[i]);
-        cursor_[i].position.x = cursp[i].x + campos.x;
-        cursor_[i].position.y = cursp[i].y + campos.y;
-        cursor_[i].position.z = cursp[i].z + campos.z;
-        cursor_[i].orientation.x = inori[i].x;
-        cursor_[i].orientation.y = inori[i].y;
-        cursor_[i].orientation.z = inori[i].z;
-        cursor_[i].orientation.w = inori[i].w;
-        grab[i] = 0;
-      }
-        prop_cam_focus_->setVector(input_pos_[_RIGHT]);
-        publishCursorUpdate(grab);
-      }
+    publishCursorUpdate(grab);
+    /*
+      * inital_vect is constantly calculated, to set origin vector between grippers when
+      * camera mode is triggered.
+      */
+    initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
+    initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
   }
   else//to avoid an erroneously large input_update_ following clutched movement
   {
@@ -408,14 +389,11 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       initial_cvect_.normalise();
     }
   }
-
-  ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
-  ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
 }
 
 void rvinciDisplay::publishCursorUpdate(int grab[2])
 {
-  ROS_INFO_STREAM("*** publishCursorUpdate called");
+  // ROS_INFO_STREAM("*** publishCursorUpdate called");
   //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
   std::string frame = context_->getFixedFrame().toStdString();
   interaction_cursor_msgs::InteractionCursorUpdate lhcursor;
@@ -430,6 +408,9 @@ void rvinciDisplay::publishCursorUpdate(int grab[2])
   lhcursor.pose.header.stamp = ros::Time::now();
   lhcursor.pose.pose = cursor_[_LEFT];
   lhcursor.button_state = grab[_LEFT];
+
+  ROS_INFO_STREAM("LEFT CURSOR POSE: "<<lhcursor.pose.pose.position.x<<" "<<lhcursor.pose.pose.position.y<<" "<<lhcursor.pose.pose.position.z);
+  ROS_INFO_STREAM("RIGHT CURSOR POSE: "<<rhcursor.pose.pose.position.x<<" "<<rhcursor.pose.pose.position.y<<" "<<rhcursor.pose.pose.position.z);
 
   publisher_rhcursor_.publish(rhcursor);
   publisher_lhcursor_.publish(lhcursor);
@@ -460,6 +441,7 @@ int rvinciDisplay::getaGrip(bool grab, int i)
 }
 void rvinciDisplay::cameraSetup()
 {
+  // ROS_INFO_STREAM("*** cameraSetup()");
   Ogre::ColourValue bg_color = context_->getViewManager()->getRenderPanel()->getViewport()->getBackgroundColour();
   window_ = render_widget_->getRenderWindow();
   camera_[_LEFT] = scene_manager_->createCamera("Left Camera");
@@ -479,23 +461,24 @@ void rvinciDisplay::cameraSetup()
 
 void rvinciDisplay::cameraReset()
 {
- camera_pos_= Ogre::Vector3(0.0f,0.0f,0.0f);
- camera_node_->setOrientation(1,0,0,0);
- camera_node_->setPosition(camera_pos_);
- for (int i = 0; i<2; ++i)
- {
- camera_[i]->setNearClipDistance(0.01f);
- camera_[i]->setFarClipDistance(10000.0f);
- camera_[i]->setFixedYawAxis(true, camera_node_->getOrientation() * Ogre::Vector3::UNIT_Z);
- camera_[i]->setPosition(camera_offset_ - camera_ipd_ + 2*i*camera_ipd_);
- camera_[i]->lookAt(camera_node_->getPosition());
+  // ROS_INFO_STREAM("*** cameraReset()");
+  camera_pos_= Ogre::Vector3(0.0f,0.0f,0.0f);
+  camera_node_->setOrientation(1,0,0,0);
+  camera_node_->setPosition(camera_pos_);
+  for (int i = 0; i<2; ++i)
+  {
+    camera_[i]->setNearClipDistance(0.01f);
+    camera_[i]->setFarClipDistance(10000.0f);
+    camera_[i]->setFixedYawAxis(true, camera_node_->getOrientation() * Ogre::Vector3::UNIT_Z);
+    camera_[i]->setPosition(camera_offset_ - camera_ipd_ + 2*i*camera_ipd_);
+    camera_[i]->lookAt(camera_node_->getPosition());
 
- cursor_[i].position.x = (2*i - 1)*0.6;
- cursor_[i].position.y = 0;
- cursor_[i].position.z = 0;
- }
+    cursor_[i].position.x = (2*i - 1)*0.6;
+    cursor_[i].position.y = 0;
+    cursor_[i].position.z = 0;
+  }
 
- prop_cam_reset_->setValue(QVariant(false));
+  prop_cam_reset_->setValue(QVariant(false));
 }
 void rvinciDisplay::cameraUpdate()
 {
@@ -510,6 +493,7 @@ void rvinciDisplay::cameraUpdate()
      camera_[_LEFT]->lookAt(prop_cam_focus_->getVector());
      camera_[_RIGHT]->lookAt(prop_cam_focus_->getVector());
     }*/
+  // ROS_INFO_STREAM("*** cameraUpdate()");
   if(camera_mode_)
   {
 
@@ -531,7 +515,7 @@ void rvinciDisplay::cameraUpdate()
 }
 void rvinciDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  cameraUpdate();
+  // cameraUpdate();
 }
 void rvinciDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
@@ -588,7 +572,7 @@ void rvinciDisplay::makeMarker()
 void rvinciDisplay::deleteMarker()
 {
   // std::cout<<marker_pub.getTopic()<<std::endl;
-  ROS_INFO_STREAM("*** DELETE MARKER");
+  // ROS_INFO_STREAM("*** DELETE MARKER");
 
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -605,10 +589,9 @@ void rvinciDisplay::deleteMarker()
 
 void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg) 
 {
-  ROS_INFO_STREAM("*** CLUTCH CALLBACK");
+  // ROS_INFO_STREAM("*** CLUTCH CALLBACK");
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
-  if (!marker_deleted) { marker_deleted = true; }
-  else { deleteMarker(); }
+  rvmsg_.clutch = msg->buttons[0];
 }
 
 void rvinciDisplay::publishLeftCursorUpdate()
@@ -639,32 +622,12 @@ void rvinciDisplay::publishRightCursorUpdate()
   publisher_rhcursor_.publish(rhcursor);
 }
 
-void rvinciDisplay::MTMLCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
 {
-  Ogre::Vector3 input = Ogre::Vector3(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
-  input *= prop_input_scalar_->getVector();
-
-  ROS_INFO_STREAM("*** left cursor pose"<<input.x<<" "<<input.y<<" "<<input.z);
-  
-  cursor_[_LEFT].position.x = input.x;
-  cursor_[_LEFT].position.y = input.y;
-  cursor_[_LEFT].position.z = input.z;
-  cursor_[_LEFT].orientation.x = msg->pose.orientation.x;
-  cursor_[_LEFT].orientation.y = msg->pose.orientation.y;
-  cursor_[_LEFT].orientation.z = msg->pose.orientation.z;
-  publishLeftCursorUpdate();
-}
-
-void rvinciDisplay::MTMRCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
-{
-  // ROS_INFO_STREAM("*** MTMR pose"<<msg->pose.position.x<<" "<<msg->pose.position.y<<" "<<msg->pose.position.z);
-  cursor_[_RIGHT].position.x = msg->pose.position.x;
-  cursor_[_RIGHT].position.y = msg->pose.position.y;
-  cursor_[_RIGHT].position.z = msg->pose.position.z;
-  cursor_[_RIGHT].orientation.x = msg->pose.orientation.x;
-  cursor_[_RIGHT].orientation.y = msg->pose.orientation.y;
-  cursor_[_RIGHT].orientation.z = msg->pose.orientation.z;
-  publishRightCursorUpdate();
+  //Offsets to set davinci at 0 x and y, with an x offset for each gripper.
+  rvmsg_.gripper[i].pose = msg->pose;
+  rvmsg_.gripper[i].pose.position.x *= -1;
+  rvmsg_.gripper[i].pose.position.z -= 0.4;
 }
 
 }//namespace rvinci

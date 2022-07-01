@@ -41,9 +41,10 @@
 #include <OgreQuaternion.h>
 #include <OgreRectangle2D.h>
 #include <OgreTexture.h>
+
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Joy.h>
-
+#include <std_msgs/Bool.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/PoseStamped.h>
 
@@ -135,8 +136,7 @@ private:
   void leftCallback(const sensor_msgs::ImageConstPtr& img);
   void rightCallback(const sensor_msgs::ImageConstPtr& img);
   void clutchCallback(const sensor_msgs::Joy::ConstPtr& msg);
-  void MTMLCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-  void MTMRCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+  void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   void publishLeftCursorUpdate();
@@ -148,11 +148,11 @@ private:
   void makeMarker();
   void deleteMarker();
 
-  bool marker_deleted;
+  rvinci_input_msg::rvinci_input rvmsg_;
 
+  bool marker_deleted;
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
-
 
   static Ogre::uint32 const LEFT_VIEW = 1;
   static Ogre::uint32 const RIGHT_VIEW = 2;
@@ -190,6 +190,7 @@ private:
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
   ros::Publisher pub_robot_state_[2];
+  ros::Publisher publisher_rvinci_;
 
   // visualization_msgs::Marker marker;
   ros::Publisher marker_pub;
