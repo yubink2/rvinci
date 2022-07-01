@@ -161,13 +161,6 @@ void rvinciDisplay::onInitialize()
   target_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
   image_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode("Background");
 
-  // cursor_[_LEFT].position.x = -0.6 * 5;  // initial cursor positions
-  // cursor_[_LEFT].position.y = 0;
-  // cursor_[_LEFT].position.z = 0;
-  // cursor_[_RIGHT].position.x = 0.6 * 5;
-  // cursor_[_RIGHT].position.y = 0;
-  // cursor_[_RIGHT].position.z = 0;
-
   pubsubSetup();
 }
 void rvinciDisplay::update(float wall_dt, float ros_dt)

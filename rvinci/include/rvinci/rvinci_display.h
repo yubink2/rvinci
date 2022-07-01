@@ -148,8 +148,7 @@ private:
 
   rvinci_input_msg::rvinci_input rvmsg_;
 
-  bool marker_deleted;
-  bool camera_mode_, clutch_mode_;
+\  bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
 
   static Ogre::uint32 const LEFT_VIEW = 1;
