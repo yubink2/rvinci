@@ -71,8 +71,10 @@ namespace rvinci
 {
 rvinciDisplay::rvinciDisplay()
   : render_widget_(0)
+  , render_widget_R_(0)
   , camera_node_(0)
   , window_(0)
+  , window_R_(0)
   , camera_offset_(0.0,-3.0,1.5)
 {
   std::string rviz_path = ros::package::getPath(ROS_PACKAGE_NAME);
@@ -149,24 +151,31 @@ void rvinciDisplay::onInitialize()
 {
   render_widget_ = new rviz::RenderWidget(rviz::RenderSystem::get());
   render_widget_->setVisible(false);
-  render_widget_->setWindowTitle("RVinci");
-  render_widget_->resize(3360,1050);
+  render_widget_->setWindowTitle("RVinci Left");
+  render_widget_->resize(1230,1050);
   render_widget_->show();
   render_widget_->setWindowFlags(Qt::WindowSystemMenuHint | Qt::WindowTitleHint);
+
+  render_widget_R_ = new rviz::RenderWidget(rviz::RenderSystem::get());
+  render_widget_R_->setVisible(false);
+  render_widget_R_->setWindowTitle("RVinci Right");
+  render_widget_R_->resize(1230,1050);
+  render_widget_R_->show();
+  render_widget_R_->setWindowFlags(Qt::WindowSystemMenuHint | Qt::WindowTitleHint);
+
   window_ = render_widget_->getRenderWindow();
   window_->setVisible(false);
   window_->setAutoUpdated(false);
   window_->addListener(this);
+
+  window_R_ = render_widget_R_->getRenderWindow();
+  window_R_->setVisible(false);
+  window_R_->setAutoUpdated(false);
+  window_R_->addListener(this);
+
   camera_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
   target_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
   image_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode("Background");
-
-  // cursor_[_LEFT].position.x = -0.6 * 5;  // initial cursor positions
-  // cursor_[_LEFT].position.y = 0;
-  // cursor_[_LEFT].position.z = 0;
-  // cursor_[_RIGHT].position.x = 0.6 * 5;
-  // cursor_[_RIGHT].position.y = 0;
-  // cursor_[_RIGHT].position.z = 0;
 
   pubsubSetup();
 }
@@ -189,6 +198,8 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
   // cameraUpdate();
   window_ = render_widget_->getRenderWindow();
   window_->update(false);
+  window_R_ = render_widget_R_->getRenderWindow();
+  window_R_->update(false);
 
   // makeMarker();
   rvmsg_.header.stamp = ros::Time::now();
@@ -444,14 +455,24 @@ void rvinciDisplay::cameraSetup()
   // ROS_INFO_STREAM("*** cameraSetup()");
   Ogre::ColourValue bg_color = context_->getViewManager()->getRenderPanel()->getViewport()->getBackgroundColour();
   window_ = render_widget_->getRenderWindow();
+  window_R_ = render_widget_R_->getRenderWindow();
+
   camera_[_LEFT] = scene_manager_->createCamera("Left Camera");
   camera_[_RIGHT] = scene_manager_->createCamera("Right Camera");
-  for(int i = 0; i<2; ++i)
-    {
-      camera_node_->attachObject(camera_[i]);
-      viewport_[i] = window_->addViewport(camera_[i],i,0.5f*i,0.0f,0.5f,1.0f);//,0,0.5f,0,0.5f,1.0f);
-      viewport_[i]->setBackgroundColour(bg_color);
-    }
+  // for(int i = 0; i<2; ++i)
+  // {
+  //   camera_node_->attachObject(camera_[i]);
+  //   viewport_[i] = window_->addViewport(camera_[i],i,0.5f*i,0.0f,0.5f,1.0f);//,0,0.5f,0,0.5f,1.0f);
+  //   viewport_[i]->setBackgroundColour(bg_color);
+  // }
+
+  camera_node_->attachObject(camera_[_LEFT]);
+  viewport_[_LEFT] = window_->addViewport(camera_[_LEFT]);
+  viewport_[_LEFT]->setBackgroundColour(bg_color);
+
+  camera_node_->attachObject(camera_[_RIGHT]);
+  viewport_[_RIGHT] = window_R_->addViewport(camera_[_RIGHT]);
+  viewport_[_RIGHT]->setBackgroundColour(bg_color);
   
   viewport_[0]->setVisibilityMask( 0x0F );
   viewport_[1]->setVisibilityMask( 0xF0 );
@@ -521,6 +542,8 @@ void rvinciDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   window_ = render_widget_->getRenderWindow();
   window_->swapBuffers();
+  window_R_ = render_widget_R_->getRenderWindow();
+  window_R_->swapBuffers();
 }
 void rvinciDisplay::onEnable()
 {
@@ -529,11 +552,13 @@ void rvinciDisplay::onEnable()
   cameraSetup();
   }
   render_widget_->setVisible(true);
+  render_widget_R_->setVisible(true);
   cameraReset();
 }
 void rvinciDisplay::onDisable()
 {
   render_widget_ ->setVisible(false);
+  render_widget_R_ ->setVisible(false);
 }
 
 //visualization

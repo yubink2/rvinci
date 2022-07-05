@@ -168,6 +168,7 @@ private:
 
   Ogre::Viewport *viewport_[2];
   Ogre::RenderWindow *window_;
+  Ogre::RenderWindow *window_R_;
 
   Ogre::Vector3 initial_cvect_;
   Ogre::Vector3 camera_ipd_;
@@ -203,6 +204,7 @@ private:
   rviz::BoolProperty *prop_cam_reset_;
 
   rviz::RenderWidget *render_widget_;
+  rviz::RenderWidget *render_widget_R_;
 
   geometry_msgs::Pose cursor_[2];
 
