@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rvinci_input_msg
   interaction_cursor_msgs
+  interaction_cursor_rviz
+  jsk_rviz_plugins
 )
 
 # Boost

@@ -45,10 +45,12 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/String.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/PoseStamped.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
+#include "jsk_rviz_plugins/OverlayText.h"
 
 namespace Ogre
 {
@@ -137,6 +139,7 @@ private:
   void rightCallback(const sensor_msgs::ImageConstPtr& img);
   void clutchCallback(const sensor_msgs::Joy::ConstPtr& msg);
   void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
+  void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
@@ -145,10 +148,12 @@ private:
   //visualization
   void makeMarker();
   void deleteMarker();
+  void initializeText();
 
   rvinci_input_msg::rvinci_input rvmsg_;
+  jsk_rviz_plugins::OverlayText text_;
+  // std_msgs::String text_message_;
 
-  bool marker_deleted;
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
 
@@ -186,13 +191,18 @@ private:
   ros::Subscriber subscriber_clutch_;
   ros::Subscriber subscriber_MTML_;
   ros::Subscriber subscriber_MTMR_;
+  ros::Subscriber subscriber_overlay_text_;
+  ros::Subscriber subscriber_lgrip_;
+  ros::Subscriber subscriber_rgrip_;
+
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
+  ros::Publisher publisher_rhcursor_display_;
+  ros::Publisher publisher_lhcursor_display_;
   ros::Publisher pub_robot_state_[2];
   ros::Publisher publisher_rvinci_;
-
-  // visualization_msgs::Marker marker;
   ros::Publisher marker_pub;
+  ros::Publisher publisher_text_;
 
   rviz::VectorProperty *prop_cam_focus_;
   rviz::QuaternionProperty *property_camrot_;

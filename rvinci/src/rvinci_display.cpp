@@ -59,6 +59,7 @@
 #include <rviz/frame_manager.h>
 
 #include <interaction_cursor_msgs/InteractionCursorUpdate.h>
+#include "interaction_cursor_rviz/interaction_cursor.h"
 #include <rvinci_input_msg/rvinci_input.h>
 #include <std_msgs/String.h>
 #include "rvinci/rvinci_display.h"
@@ -178,6 +179,9 @@ void rvinciDisplay::onInitialize()
   image_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode("Background");
 
   pubsubSetup();
+
+  // text_ = new jsk_rviz_plugins::OverlayText();
+  initializeText();
 }
 void rvinciDisplay::update(float wall_dt, float ros_dt)
 {
@@ -210,25 +214,26 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
 void rvinciDisplay::pubsubSetup()
 {
   std::string subtopic = prop_ros_topic_->getStdString();
-  // ROS_INFO_STREAM("*** SUBTOPIC: "<<subtopic);
   rvmsg_.header.frame_id = "base_link";
 
   subscriber_input_ = nh_.subscribe<rvinci_input_msg::rvinci_input>(subtopic, 10, boost::bind(&rvinciDisplay::inputCallback,this,_1));
   subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
   subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
-  // subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
-  // subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
   subscriber_MTML_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTML/measured_cp", 10, boost::bind(&rvinciDisplay::MTMCallback,this,_1, _LEFT));
   subscriber_MTMR_ = nh_.subscribe<geometry_msgs::PoseStamped>("/MTMR/measured_cp", 10, boost::bind(&rvinciDisplay::MTMCallback,this,_1, _RIGHT));
+  subscriber_lgrip_ = nh_.subscribe<std_msgs::Bool>("/MTML/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_LEFT));
+  subscriber_rgrip_ = nh_.subscribe<std_msgs::Bool>("/MTMR/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_RIGHT));
 
   publisher_rhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_right/update",10);
   publisher_lhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_left/update",10);
-  pub_robot_state_[_LEFT] = nh_.advertise<std_msgs::String>("/dvrk/MTML/set_robot_state",10);
-  pub_robot_state_[_RIGHT] = nh_.advertise<std_msgs::String>("/dvrk/MTMR/set_robot_state",10);
+  // publisher_rhcursor_display_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorDisplay>("rvinci_cursor_right/update",10);
+  // pub_robot_state_[_LEFT] = nh_.advertise<std_msgs::String>("/dvrk/MTML/set_robot_state",10);
+  // pub_robot_state_[_RIGHT] = nh_.advertise<std_msgs::String>("/dvrk/MTMR/set_robot_state",10);
   
   marker_pub = nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
   publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
+  publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
 }
 
 void rvinciDisplay::leftCallback(const sensor_msgs::ImageConstPtr& img){
@@ -335,8 +340,8 @@ void rvinciDisplay::gravityCompensation()
     msg.data = "DVRK_READY";
   }
 
-  pub_robot_state_[_LEFT].publish(msg);
-  pub_robot_state_[_RIGHT].publish(msg);
+  // pub_robot_state_[_LEFT].publish(msg);
+  // pub_robot_state_[_RIGHT].publish(msg);
 }
 
 void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr& r_input)
@@ -404,52 +409,103 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
 
 void rvinciDisplay::publishCursorUpdate(int grab[2])
 {
-  // ROS_INFO_STREAM("*** publishCursorUpdate called");
   //fixed frame is a parent member from RViz Display, pointing to selected world frame in rviz;
   std::string frame = context_->getFixedFrame().toStdString();
   interaction_cursor_msgs::InteractionCursorUpdate lhcursor;
   interaction_cursor_msgs::InteractionCursorUpdate rhcursor;
 
-  rhcursor.pose.header.frame_id = frame;
-  rhcursor.pose.header.stamp = ros::Time::now();
-  rhcursor.pose.pose = cursor_[_RIGHT];
-  rhcursor.button_state = grab[_RIGHT];
+  //marker implementation not working!
+  // visualization_msgs::Marker lhmarker;
+  // visualization_msgs::Marker rhhmarker;
+
+  // lhmarker.header.frame_id = "base_link";
+  // lhmarker.header.stamp = ros::Time::now();
+  // lhmarker.ns = "left_marker";
+  // lhmarker.id = _LEFT;
+  // lhmarker.type = visualization_msgs::Marker::SPHERE;
+  // lhmarker.action = visualization_msgs::Marker::ADD;
+  // lhmarker.scale.x = 0.1;
+  // lhmarker.scale.y = 0.1;
+  // lhmarker.scale.z = 0.1;
+  // lhmarker.color.r = 0.5;
+  // lhmarker.color.g = 0.5;
+  // lhmarker.color.b = 0.5;
+  // lhmarker.color.a = 1.0;
 
   lhcursor.pose.header.frame_id = frame;
   lhcursor.pose.header.stamp = ros::Time::now();
   lhcursor.pose.pose = cursor_[_LEFT];
   lhcursor.button_state = grab[_LEFT];
+  // lhcursor.markers = {lhmarker};
 
-  ROS_INFO_STREAM("LEFT CURSOR POSE: "<<lhcursor.pose.pose.position.x<<" "<<lhcursor.pose.pose.position.y<<" "<<lhcursor.pose.pose.position.z);
-  ROS_INFO_STREAM("RIGHT CURSOR POSE: "<<rhcursor.pose.pose.position.x<<" "<<rhcursor.pose.pose.position.y<<" "<<rhcursor.pose.pose.position.z);
+  rhcursor.pose.header.frame_id = frame;
+  rhcursor.pose.header.stamp = ros::Time::now();
+  rhcursor.pose.pose = cursor_[_RIGHT];
+  rhcursor.button_state = grab[_RIGHT];
+  // rhcursor.markers.type = visualization_msgs::Marker::CUBE;
+
+  // if (!clutch_mode_) 
+  // {
+  //   // for (int i=0; i<sizeof(lhcursor.markers)/sizeof(lhcursor.markers[0]); i++) 
+  //   // {
+  //   //   lhcursor.markers[i].color.a = 1.0;
+  //   //   rhcursor.markers[i].color.a = 1.0;
+  //   //   ROS_INFO_STREAM("cursors "<<i);
+  //   // }
+  //   lhcursor.markers[0].color.a = 1.0;
+  //   rhcursor.markers[0].color.a = 1.0;
+  // }
+  // else 
+  // {
+  //   // for (int i=0; i<sizeof(lhcursor.markers)/sizeof(lhcursor.markers[0]); i++) 
+  //   // {
+  //   //   lhcursor.markers[i].color.a = 0.0;
+  //   //   rhcursor.markers[i].color.a = 0.0;
+  //   //   ROS_INFO_STREAM("no cursors"<<i);
+  //   // }
+  //   lhcursor.markers[0].color.a = 0.0;
+  //   rhcursor.markers[0].color.a = 0.0;
+  // }
+  
+  // ROS_INFO_STREAM("LEFT CURSOR POSE: "<<lhcursor.pose.pose.position.x<<" "<<lhcursor.pose.pose.position.y<<" "<<lhcursor.pose.pose.position.z);
+  // ROS_INFO_STREAM("RIGHT CURSOR POSE: "<<rhcursor.pose.pose.position.x<<" "<<rhcursor.pose.pose.position.y<<" "<<rhcursor.pose.pose.position.z);
 
   publisher_rhcursor_.publish(rhcursor);
   publisher_lhcursor_.publish(lhcursor);
 
+  // prev_grab_[_LEFT] = rvmsg_.gripper[_LEFT].grab;
+  // prev_grab_[_RIGHT] = rvmsg_.gripper[_RIGHT].grab;
 }
+
 int rvinciDisplay::getaGrip(bool grab, int i)
 {
-  if(grab && !prev_grab_[i])
-    {
-    prev_grab_[i] = grab;
-    return 2;//Grab object
-    }
-  if(grab && prev_grab_[i])
-    {
-    prev_grab_[i] = grab;
-    return 1;//hold object
-    }
+  //if "pinched" -> 0, if released -> 1
   if(!grab && prev_grab_[i])
     {
     prev_grab_[i] = grab;
-    return 3;//Release object
+    ROS_INFO_STREAM("Grab");
+    return 2;//Grab object
     }
   if(!grab && !prev_grab_[i])
     {
     prev_grab_[i] = grab;
+    ROS_INFO_STREAM("hold");
+    return 1;//hold object
+    }
+  if(grab && !prev_grab_[i])
+    {
+    prev_grab_[i] = grab;
+    ROS_INFO_STREAM("Release");
+    return 3;//Release object
+    }
+  if(grab && prev_grab_[i])
+    {
+    prev_grab_[i] = grab;
+    // ROS_INFO_STREAM("none");
     return 0;//none
    }
 }
+
 void rvinciDisplay::cameraSetup()
 {
   // ROS_INFO_STREAM("*** cameraSetup()");
@@ -614,7 +670,6 @@ void rvinciDisplay::deleteMarker()
 
 void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg) 
 {
-  // ROS_INFO_STREAM("*** CLUTCH CALLBACK");
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
   rvmsg_.clutch = msg->buttons[0];
 }
@@ -625,6 +680,27 @@ void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
   rvmsg_.gripper[i].pose = msg->pose;
   rvmsg_.gripper[i].pose.position.x *= -1;
   rvmsg_.gripper[i].pose.position.z -= 0.4;
+}
+
+void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
+{
+  //if "pinched" -> false, if released -> true
+  rvmsg_.gripper[i].grab = grab->data;
+}
+
+void rvinciDisplay::initializeText()
+{
+  //doesnt work!
+  text_.action = jsk_rviz_plugins::OverlayText::ADD;
+  text_.width = 400;
+  text_.height = 600;
+  text_.left = 10;
+  text_.top = 10;
+  text_.text_size = 12;
+  text_.line_width = 2;
+  text_.font = "DejaVu Sans Mono";
+  text_.text = "Hello";
+  publisher_text_.publish(text_);
 }
 
 }//namespace rvinci
