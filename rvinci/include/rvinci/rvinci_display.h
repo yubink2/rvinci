@@ -51,6 +51,7 @@
 
 #include <rvinci_input_msg/rvinci_input.h>
 #include "jsk_rviz_plugins/OverlayText.h"
+#include "rvinci/rvinci_gui.h"
 
 namespace Ogre
 {
@@ -139,16 +140,19 @@ private:
   void rightCallback(const sensor_msgs::ImageConstPtr& img);
   void clutchCallback(const sensor_msgs::Joy::ConstPtr& msg);
   void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
+  void PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
-
   //visualization
-  void makeMarker();
+  void makeMarker(geometry_msgs::Pose p, int id);
+  void makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
   void deleteMarker();
   void initializeText();
+  //measurement
+  double calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2);
 
   rvinci_input_msg::rvinci_input rvmsg_;
   jsk_rviz_plugins::OverlayText text_;
@@ -156,6 +160,9 @@ private:
 
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
+  bool start_measurement_[2];
+
+  double distance_measured_;
 
   static Ogre::uint32 const LEFT_VIEW = 1;
   static Ogre::uint32 const RIGHT_VIEW = 2;
@@ -194,6 +201,8 @@ private:
   ros::Subscriber subscriber_overlay_text_;
   ros::Subscriber subscriber_lgrip_;
   ros::Subscriber subscriber_rgrip_;
+  ros::Subscriber subscriber_PSM1_;
+  ros::Subscriber subscriber_PSM2_;
 
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
@@ -201,7 +210,7 @@ private:
   ros::Publisher publisher_lhcursor_display_;
   ros::Publisher pub_robot_state_[2];
   ros::Publisher publisher_rvinci_;
-  ros::Publisher marker_pub;
+  ros::Publisher publisher_marker;
   ros::Publisher publisher_text_;
 
   rviz::VectorProperty *prop_cam_focus_;
@@ -217,6 +226,10 @@ private:
   rviz::RenderWidget *render_widget_R_;
 
   geometry_msgs::Pose cursor_[2];
+  geometry_msgs::Pose PSM_pose_start_[2];
+  geometry_msgs::Pose PSM_pose_end_[2];
+
+  // RvinciGui gui_;
 
 };
 
