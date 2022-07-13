@@ -47,6 +47,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/PoseStamped.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
@@ -147,10 +148,10 @@ private:
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
   //visualization
-  visualization_msgs::Marker& makeMarker(geometry_msgs::Pose p, int id);
-  visualization_msgs::Marker& makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id);
-  visualization_msgs::Marker& makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
-  visualization_msgs::Marker& deleteMarker(int id);
+  visualization_msgs::Marker makeMarker(geometry_msgs::Pose p, int id);
+  visualization_msgs::Marker makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id);
+  visualization_msgs::Marker makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
+  visualization_msgs::Marker deleteMarker(int id);
   void publishMeasurementMarkers();
   //measurement
   double calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2);

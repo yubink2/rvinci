@@ -184,6 +184,8 @@ void rvinciDisplay::onInitialize()
 
   start_measurement_[_LEFT] = false;
   start_measurement_[_RIGHT] = false;
+
+  measurement_status_ = _BEGIN;
 }
 void rvinciDisplay::update(float wall_dt, float ros_dt)
 {
@@ -217,6 +219,8 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
     case _MOVING: ROS_INFO_STREAM("measurement status: _MOVING"); break;
     case _END_MEASUREMENT: ROS_INFO_STREAM("measurement status: _END_MEASUREMENT"); break;
   }
+
+  publishMeasurementMarkers();
 }
 
 //void rvinciDisplay::reset(){}
@@ -366,58 +370,41 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
   camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
-  // ROS_INFO_STREAM("*** CLUTCH MODE? "<<clutch_mode_);
-  // ROS_INFO_STREAM("*** CAMERA MODE? "<<camera_mode_);
-
-  if(!clutch_mode_)
+  Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
+  int grab[2];
+  for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
   {
-    // Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
-    int grab[2];
-    for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
-    {
-      Ogre::Vector3 old_input = input_pos_[i];
-      geometry_msgs::Pose pose = r_input->gripper[i].pose;
+    Ogre::Vector3 old_input = input_pos_[i];
+    geometry_msgs::Pose pose = r_input->gripper[i].pose;
 
-      input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
-      input_pos_[i]*=prop_input_scalar_->getVector();
-      inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
-      // inori[i]= camor*(orshift*inori[i]);
+    input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
+    input_pos_[i]*=prop_input_scalar_->getVector();
+    inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
+    // inori[i]= camor*(orshift*inori[i]);
 
-      input_change_[i] = (input_pos_[i] - old_input);
-    }
-
-    geometry_msgs::Pose curspose;
-
-    for (int i = 0; i<2; ++i)
-    {
-      cursor_[i].position.x += input_change_[i].x;
-      cursor_[i].position.y += input_change_[i].y;
-      cursor_[i].position.z += input_change_[i].z;
-      cursor_[i].orientation.x = inori[i].x;
-      cursor_[i].orientation.y = inori[i].y;
-      cursor_[i].orientation.z = inori[i].z;
-      cursor_[i].orientation.w = inori[i].w;
-      grab[i] = getaGrip(r_input->gripper[i].grab, i);
-    }
-    publishCursorUpdate(grab);
-    /*
-      * inital_vect is constantly calculated, to set origin vector between grippers when
-      * camera mode is triggered.
-      */
-    initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
-    initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
+    input_change_[i] = (input_pos_[i] - old_input);
   }
-  else//to avoid an erroneously large input_update_ following clutched movement
+
+  geometry_msgs::Pose curspose;
+
+  for (int i = 0; i<2; ++i)
   {
-    for(int i = 0; i<2; ++i)
-    {
-      geometry_msgs::Pose pose = r_input->gripper[i].pose;
-      input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
-      input_pos_[i]*= prop_input_scalar_->getVector();
-      initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
-      initial_cvect_.normalise();
-    }
+    cursor_[i].position.x += input_change_[i].x;
+    cursor_[i].position.y += input_change_[i].y;
+    cursor_[i].position.z += input_change_[i].z;
+    cursor_[i].orientation.x = inori[i].x;
+    cursor_[i].orientation.y = inori[i].y;
+    cursor_[i].orientation.z = inori[i].z;
+    cursor_[i].orientation.w = inori[i].w;
+    grab[i] = getaGrip(r_input->gripper[i].grab, i);
   }
+  publishCursorUpdate(grab);
+  /*
+    * inital_vect is constantly calculated, to set origin vector between grippers when
+    * camera mode is triggered.
+    */
+  initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
+  initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
 }
 
 void rvinciDisplay::publishCursorUpdate(int grab[2])
@@ -480,8 +467,8 @@ void rvinciDisplay::publishCursorUpdate(int grab[2])
   //   rhcursor.markers[0].color.a = 0.0;
   // }
 
-  ROS_INFO_STREAM("LEFT CURSOR POSE: "<<lhcursor.pose.pose.position.x<<" "<<lhcursor.pose.pose.position.y<<" "<<lhcursor.pose.pose.position.z);
-  ROS_INFO_STREAM("RIGHT CURSOR POSE: "<<rhcursor.pose.pose.position.x<<" "<<rhcursor.pose.pose.position.y<<" "<<rhcursor.pose.pose.position.z);
+  // ROS_INFO_STREAM("LEFT CURSOR POSE: "<<lhcursor.pose.pose.position.x<<" "<<lhcursor.pose.pose.position.y<<" "<<lhcursor.pose.pose.position.z);
+  // ROS_INFO_STREAM("RIGHT CURSOR POSE: "<<rhcursor.pose.pose.position.x<<" "<<rhcursor.pose.pose.position.y<<" "<<rhcursor.pose.pose.position.z);
 
   publisher_rhcursor_.publish(rhcursor);
   publisher_lhcursor_.publish(lhcursor);
@@ -627,8 +614,7 @@ void rvinciDisplay::onDisable()
   render_widget_R_ ->setVisible(false);
 }
 
-//visualization
-visualization_msgs::Marker& rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
+visualization_msgs::Marker rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -652,7 +638,7 @@ visualization_msgs::Marker& rvinciDisplay::makeMarker(geometry_msgs::Pose p, int
   return marker;
 }
 
-visualization_msgs::Marker& rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int id)
+visualization_msgs::Marker rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -679,7 +665,7 @@ visualization_msgs::Marker& rvinciDisplay::makeTextMessage(geometry_msgs::Pose p
   return marker;
 }
 
-visualization_msgs::Marker& rvinciDisplay::makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id)
+visualization_msgs::Marker rvinciDisplay::makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -692,14 +678,14 @@ visualization_msgs::Marker& rvinciDisplay::makeLineMarker(geometry_msgs::Point p
 
   marker.points.push_back(p1);
   marker.points.push_back(p2);
-  marker.scale.x = 0.1;
-  marker.color.b = 1.0;
+  marker.scale.x = 0.02;
+  marker.color.b = 0.8;
   marker.color.a = 0.7;
 
   return marker;
 }
 
-visualization_msgs::Marker& rvinciDisplay::deleteMarker(int id)
+visualization_msgs::Marker rvinciDisplay::deleteMarker(int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -714,27 +700,34 @@ visualization_msgs::Marker& rvinciDisplay::deleteMarker(int id)
 void rvinciDisplay::publishMeasurementMarkers()
 {
   visualization_msgs::MarkerArray marker_arr;
+  geometry_msgs::Pose text_pose;
+  text_pose.position.x = text_pose.position.y = text_pose.position.z = 0.0;
+  text_pose.orientation.x = text_pose.orientation.y = text_pose.orientation.z = 0.0;
+  text_pose.orientation.w = 1.0;
 
   switch (measurement_status_)
   {
     case _BEGIN:
-      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "begin", _STATUS_TEXT) );
+      // marker_arr.markers.push_back( makeTextMessage(text_pose, "begin", _STATUS_TEXT) );
+      marker_arr.markers.push_back( deleteMarker(_DELETE) );
       break;
     case _START_MEASUREMENT:
-      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "start measurement", _STATUS_TEXT) );
-      marker_arr.push_back( makeMarker(cursor_[marker_side_], _START_POINT) );
+      marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
+      marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _START_POINT) );
       measurement_start_ = cursor_[marker_side_];
       break;
     case _MOVING:
-      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "moving", _STATUS_TEXT) );
-      marker_arr.push_back( makeMarker(measurement_start_, _START_POINT) );
-      marker_arr.push_back( makeMarker(cursor_[marker_side_], _END_POINT) );
+      marker_arr.markers.push_back( makeTextMessage(text_pose, "moving", _STATUS_TEXT) );
+      marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
+      marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _END_POINT) );
+      marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, cursor_[marker_side_].position, _LINE) );
       measurement_end_ = cursor_[marker_side_];
       break;
     case _END_MEASUREMENT:
-      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "end measurement", _STATUS_TEXT) );
-      marker_arr.push_back( makeMarker(measurement_start_, _START_POINT) );
-      marker_arr.push_back( makeMarker(measurement_end_, _END_POINT) );
+      marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
+      marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
+      marker_arr.markers.push_back( makeMarker(measurement_end_, _END_POINT) );
+      marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, measurement_end_.position, _LINE) );
       break;
   }
 
@@ -746,22 +739,19 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
   rvmsg_.clutch = msg->buttons[0];
 
-  //if clutched while gripper closed, begin measurement
+  // if clutched while gripper closed, begin measurement
   if (rvmsg_.clutch && !rvmsg_.gripper[marker_side_].grab)
   {
     switch (measurement_status_)
     {
       case _BEGIN: 
         measurement_status_ = _START_MEASUREMENT; 
-        //delete all markers? make them transparent?
         break;
       case _START_MEASUREMENT: 
         measurement_status_ = _MOVING; 
-        //marker 1 drawn
         break;
       case _MOVING: 
         measurement_status_ = _END_MEASUREMENT; 
-        //line between marker1 and cursor drawn (same side), distance text drawn
         break;
       case _END_MEASUREMENT: 
         measurement_status_ = _BEGIN; 
@@ -778,21 +768,21 @@ void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
   rvmsg_.gripper[i].pose.position.z -= 0.4;
 }
 
-void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
-{
-  //Offsets to set davinci at 0 x and y, with an x offset for each gripper.
-  // if (start_measurement_[i]) 
-  //   PSM_pose_start_[i] = msg->pose;
-  // else {
-  //   PSM_pose_end_[i] = msg->pose;
-  //   distance_measured_ = calculateDistance(PSM_pose_start_[i], PSM_pose_end_[i]);
-  // }
-}
+// void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
+// {
+//   Offsets to set davinci at 0 x and y, with an x offset for each gripper.
+//   if (start_measurement_[i]) 
+//     PSM_pose_start_[i] = msg->pose;
+//   else {
+//     PSM_pose_end_[i] = msg->pose;
+//     distance_measured_ = calculateDistance(PSM_pose_start_[i], PSM_pose_end_[i]);
+//   }
+// }
 
 void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 {
   //if "pinched" -> false, if released -> true
-  if (!rvmsg_.gripper[marker_side_].grab && grab->data && marker_side_==i)
+  if (!rvmsg_.gripper[i].grab && grab->data && marker_side_ == i)
   {
     measurement_status_ = _BEGIN;  //if gripper released during measurement, status back to BEGIN
   }
@@ -804,12 +794,12 @@ void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
   rvmsg_.gripper[i].grab = grab->data;
 }
 
-double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)
-{
-  // return std::sqrt( std::pow(p1.position.x, p2.position.x, 2)
-  //                   + std::pow(p1.position.y, p2.position.y, 2)
-  //                   + std::pow(p1.position.z, p2.position.z, 2) );
-}
+// double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)
+// {
+//   return std::sqrt( std::pow(p1.position.x, p2.position.x, 2)
+//                     + std::pow(p1.position.y, p2.position.y, 2)
+//                     + std::pow(p1.position.z, p2.position.z, 2) );
+// }
 
 }//namespace rvinci
 #include <pluginlib/class_list_macros.h>
