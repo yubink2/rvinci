@@ -68,7 +68,6 @@
 #define _LEFT 0
 #define _RIGHT 1
 
-
 namespace rvinci
 {
 rvinciDisplay::rvinciDisplay()
@@ -181,7 +180,6 @@ void rvinciDisplay::onInitialize()
 
   pubsubSetup();
 
-  // initializeText();
   // gui_.initialize();
 
   start_measurement_[_LEFT] = false;
@@ -209,9 +207,16 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
   window_R_ = render_widget_R_->getRenderWindow();
   window_R_->update(false);
 
-  // makeMarker();
   rvmsg_.header.stamp = ros::Time::now();
   publisher_rvinci_.publish(rvmsg_);
+
+  switch (measurement_status_)  // CHECK THIS!
+  {
+    case _BEGIN: ROS_INFO_STREAM("measurement status: _BEGIN"); break;
+    case _START_MEASUREMENT: ROS_INFO_STREAM("measurement status: _START_MEASUREMENT"); break;
+    case _MOVING: ROS_INFO_STREAM("measurement status: _MOVING"); break;
+    case _END_MEASUREMENT: ROS_INFO_STREAM("measurement status: _END_MEASUREMENT"); break;
+  }
 }
 
 //void rvinciDisplay::reset(){}
@@ -239,7 +244,7 @@ void rvinciDisplay::pubsubSetup()
   // pub_robot_state_[_LEFT] = nh_.advertise<std_msgs::String>("/dvrk/MTML/set_robot_state",10);
   // pub_robot_state_[_RIGHT] = nh_.advertise<std_msgs::String>("/dvrk/MTMR/set_robot_state",10);
   
-  publisher_marker = nh_.advertise<visualization_msgs::Marker>("rvinci_marker", 10);
+  publisher_markers = nh_.advertise<visualization_msgs::MarkerArray>("rvinci_markers", 10);
   publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
   publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
 }
@@ -623,7 +628,7 @@ void rvinciDisplay::onDisable()
 }
 
 //visualization
-void rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
+visualization_msgs::Marker& rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -644,10 +649,10 @@ void rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
   marker.color.a = 0.7;
 
   marker.lifetime = ros::Duration();
-  publisher_marker.publish(marker);
+  return marker;
 }
 
-void rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int id)
+visualization_msgs::Marker& rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int id)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
@@ -663,7 +668,7 @@ void rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int 
   marker.pose.orientation.y = 0.0;
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0;
-  marker.scale.z = 0.2;
+  marker.scale.z = 0.1;
   marker.color.r = 0.8;
   marker.color.g = 0.8;
   marker.color.b = 0.8;
@@ -671,25 +676,69 @@ void rvinciDisplay::makeTextMessage(geometry_msgs::Pose p, std::string msg, int 
   marker.text = msg;
 
   marker.lifetime = ros::Duration();
-  publisher_marker.publish(marker);
+  return marker;
 }
 
-void rvinciDisplay::deleteMarker()
+visualization_msgs::Marker& rvinciDisplay::makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id)
 {
-  // std::cout<<publisher_marker.getTopic()<<std::endl;
-  // ROS_INFO_STREAM("*** DELETE MARKER");
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "base_link";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "line_strip";
+  marker.id = id;
 
+  marker.type = visualization_msgs::Marker::LINE_STRIP;
+  marker.action = visualization_msgs::Marker::ADD;
+
+  marker.points.push_back(p1);
+  marker.points.push_back(p2);
+  marker.scale.x = 0.1;
+  marker.color.b = 1.0;
+  marker.color.a = 0.7;
+
+  return marker;
+}
+
+visualization_msgs::Marker& rvinciDisplay::deleteMarker(int id)
+{
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
   marker.header.stamp = ros::Time::now();
   marker.ns = "basic_shapes";
-  marker.id = 0;
+  marker.id = id;
+  marker.action = visualization_msgs::Marker::DELETEALL;
 
-  marker.type = visualization_msgs::Marker::CUBE;
-  marker.action = visualization_msgs::Marker::DELETE;
+  return marker;
+}
 
-  marker.lifetime = ros::Duration();
-  publisher_marker.publish(marker);
+void rvinciDisplay::publishMeasurementMarkers()
+{
+  visualization_msgs::MarkerArray marker_arr;
+
+  switch (measurement_status_)
+  {
+    case _BEGIN:
+      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "begin", _STATUS_TEXT) );
+      break;
+    case _START_MEASUREMENT:
+      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "start measurement", _STATUS_TEXT) );
+      marker_arr.push_back( makeMarker(cursor_[marker_side_], _START_POINT) );
+      measurement_start_ = cursor_[marker_side_];
+      break;
+    case _MOVING:
+      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "moving", _STATUS_TEXT) );
+      marker_arr.push_back( makeMarker(measurement_start_, _START_POINT) );
+      marker_arr.push_back( makeMarker(cursor_[marker_side_], _END_POINT) );
+      measurement_end_ = cursor_[marker_side_];
+      break;
+    case _END_MEASUREMENT:
+      marker_arr.push_back( makeTextMessage(geometry_msgs::Point(0, 0, 0), "end measurement", _STATUS_TEXT) );
+      marker_arr.push_back( makeMarker(measurement_start_, _START_POINT) );
+      marker_arr.push_back( makeMarker(measurement_end_, _END_POINT) );
+      break;
+  }
+
+  publisher_markers.publish(marker_arr);
 }
 
 void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg) 
@@ -697,14 +746,28 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
   rvmsg_.clutch = msg->buttons[0];
 
-  // if (!clutch_mode_) 
-  // {
-  //   gui_.show_overlay();
-  // }
-  // else 
-  // {
-  //   gui_.hide_overlay();
-  // }
+  //if clutched while gripper closed, begin measurement
+  if (rvmsg_.clutch && !rvmsg_.gripper[marker_side_].grab)
+  {
+    switch (measurement_status_)
+    {
+      case _BEGIN: 
+        measurement_status_ = _START_MEASUREMENT; 
+        //delete all markers? make them transparent?
+        break;
+      case _START_MEASUREMENT: 
+        measurement_status_ = _MOVING; 
+        //marker 1 drawn
+        break;
+      case _MOVING: 
+        measurement_status_ = _END_MEASUREMENT; 
+        //line between marker1 and cursor drawn (same side), distance text drawn
+        break;
+      case _END_MEASUREMENT: 
+        measurement_status_ = _BEGIN; 
+        break;
+    }
+  }
 }
 
 void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
@@ -729,12 +792,16 @@ void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
 void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 {
   //if "pinched" -> false, if released -> true
-  rvmsg_.gripper[i].grab = grab->data;
-  start_measurement_[i] = !grab->data;
-  if (grab->data) {
-    // makeMarker(rvmsg_.gripper[i].pose, 0);
-    makeMarker(cursor_[i], 0);
+  if (!rvmsg_.gripper[marker_side_].grab && grab->data && marker_side_==i)
+  {
+    measurement_status_ = _BEGIN;  //if gripper released during measurement, status back to BEGIN
   }
+  if (!grab->data) 
+  {
+    marker_side_ = i;
+  }
+
+  rvmsg_.gripper[i].grab = grab->data;
 }
 
 double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)
@@ -742,21 +809,6 @@ double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::P
   // return std::sqrt( std::pow(p1.position.x, p2.position.x, 2)
   //                   + std::pow(p1.position.y, p2.position.y, 2)
   //                   + std::pow(p1.position.z, p2.position.z, 2) );
-}
-
-void rvinciDisplay::initializeText()
-{
-  //doesnt work!
-  text_.action = jsk_rviz_plugins::OverlayText::ADD;
-  text_.width = 400;
-  text_.height = 400;
-  text_.left = 10;
-  text_.top = 10;
-  text_.text_size = 12;
-  text_.line_width = 2;
-  text_.font = "DejaVu Sans Mono";
-  text_.text = "Hello";
-  publisher_text_.publish(text_);
 }
 
 }//namespace rvinci

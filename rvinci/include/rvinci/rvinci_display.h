@@ -147,12 +147,16 @@ private:
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
   //visualization
-  void makeMarker(geometry_msgs::Pose p, int id);
-  void makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
-  void deleteMarker();
-  void initializeText();
+  visualization_msgs::Marker& makeMarker(geometry_msgs::Pose p, int id);
+  visualization_msgs::Marker& makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id);
+  visualization_msgs::Marker& makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
+  visualization_msgs::Marker& deleteMarker(int id);
+  void publishMeasurementMarkers();
   //measurement
   double calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2);
+
+  enum MeasurementApp {_BEGIN, _START_MEASUREMENT, _MOVING, _END_MEASUREMENT};
+  enum MarkerID {_STATUS_TEXT, _START_POINT, _END_POINT, _LINE, _DISTANCE_TEXT, _DELETE};
 
   rvinci_input_msg::rvinci_input rvmsg_;
   jsk_rviz_plugins::OverlayText text_;
@@ -160,8 +164,10 @@ private:
 
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
-  bool start_measurement_[2];
 
+  bool start_measurement_[2];
+  int marker_side_;
+  MeasurementApp measurement_status_;
   double distance_measured_;
 
   static Ogre::uint32 const LEFT_VIEW = 1;
@@ -210,7 +216,7 @@ private:
   ros::Publisher publisher_lhcursor_display_;
   ros::Publisher pub_robot_state_[2];
   ros::Publisher publisher_rvinci_;
-  ros::Publisher publisher_marker;
+  ros::Publisher publisher_markers;
   ros::Publisher publisher_text_;
 
   rviz::VectorProperty *prop_cam_focus_;
@@ -226,6 +232,8 @@ private:
   rviz::RenderWidget *render_widget_R_;
 
   geometry_msgs::Pose cursor_[2];
+  geometry_msgs::Pose measurement_start_;
+  geometry_msgs::Pose measurement_end_;
   geometry_msgs::Pose PSM_pose_start_[2];
   geometry_msgs::Pose PSM_pose_end_[2];
 
