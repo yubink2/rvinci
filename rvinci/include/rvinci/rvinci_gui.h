@@ -18,8 +18,8 @@ namespace rvinci {
 class RvinciGui {
 public:
   void initialize();
-  void show_overlay();
-  void hide_overlay();
+  void show();
+  void hide();
 
 private:
   Ogre::Overlay* overlay_ = nullptr;

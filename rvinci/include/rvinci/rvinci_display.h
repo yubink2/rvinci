@@ -166,9 +166,10 @@ private:
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
 
-  bool start_measurement_[2];
+  bool start_measurement_PSM_[2];
   int marker_side_;
   MeasurementApp measurement_status_;
+  MeasurementApp measurement_status_PSM_;
   double distance_measured_;
 
   static Ogre::uint32 const LEFT_VIEW = 1;
@@ -235,8 +236,8 @@ private:
   geometry_msgs::Pose cursor_[2];
   geometry_msgs::Pose measurement_start_;
   geometry_msgs::Pose measurement_end_;
-  geometry_msgs::Pose PSM_pose_start_[2];
-  geometry_msgs::Pose PSM_pose_end_[2];
+  geometry_msgs::Pose PSM_pose_start_;
+  geometry_msgs::Pose PSM_pose_end_;
 
   // RvinciGui gui_;
 

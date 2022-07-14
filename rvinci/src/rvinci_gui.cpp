@@ -10,14 +10,12 @@ void RvinciGui::initialize()
     overlay_ = overlay_manager.create("RVinciInterface");
     overlay_->setZOrder(500);
 
-    panel_ = static_cast<Ogre::OverlayContainer*>(
-	   overlay_manager.createOverlayElement("Panel", "MainPanel"));
+    panel_ = static_cast<Ogre::OverlayContainer*>(overlay_manager.createOverlayElement("Panel", "MainPanel"));
     panel_->setMetricsMode(Ogre::GMM_PIXELS);
 	panel_->setPosition(10, 10);
 	panel_->setDimensions(100, 100);
 
-    textArea_ = static_cast<Ogre::TextAreaOverlayElement*>(
-	   overlay_manager.createOverlayElement("TextArea", "TextMessage"));
+    textArea_ = static_cast<Ogre::TextAreaOverlayElement*>(overlay_manager.createOverlayElement("TextArea", "TextMessage"));
 	textArea_->setMetricsMode(Ogre::GMM_PIXELS);
 	textArea_->setPosition(0, 0);
 	textArea_->setDimensions(100, 100);
@@ -29,12 +27,14 @@ void RvinciGui::initialize()
 
     overlay_->add2D(panel_);
     panel_->addChild(textArea_);
-    overlay_->show();
 }
 
-void RvinciGui::show_overlay() 
+void RvinciGui::show() 
 {
-      if (overlay_) overlay_->show();
+    if (overlay_) {
+        overlay_->show();
+        // ROS_INFO_STREAM("gui show");
+    }
 
     // Ogre::Overlay* left_cursor = Ogre::OverlayManager::getSingleton().getByName("RVinciCursorLeft");
     // if (left_cursor) left_cursor->show();
@@ -45,9 +45,12 @@ void RvinciGui::show_overlay()
     // else ROS_INFO_STREAM("show() -- right not found");
 }
 
-void RvinciGui::hide_overlay() {
-      if (overlay_) overlay_->hide();
-
+void RvinciGui::hide() 
+{
+    if (overlay_) {
+        overlay_->hide();
+        // ROS_INFO_STREAM("gui hide");
+    }
     // Ogre::Overlay* left_cursor = Ogre::OverlayManager::getSingleton().getByName("RVinciCursorLeft");
     // if (left_cursor) left_cursor->hide();
     // else ROS_INFO_STREAM("hide() -- left not found");
