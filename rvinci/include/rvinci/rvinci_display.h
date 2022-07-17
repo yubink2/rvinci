@@ -49,6 +49,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/WrenchStamped.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
 #include "jsk_rviz_plugins/OverlayText.h"
@@ -140,6 +141,7 @@ private:
   void leftCallback(const sensor_msgs::ImageConstPtr& img);
   void rightCallback(const sensor_msgs::ImageConstPtr& img);
   void clutchCallback(const sensor_msgs::Joy::ConstPtr& msg);
+  void cameraCallback(const sensor_msgs::Joy::ConstPtr& msg);
   void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
@@ -147,14 +149,16 @@ private:
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
+  //publish wrench 0 and gravity compensation
+  void publishWrenchGravity();
   //visualization
   visualization_msgs::Marker makeMarker(geometry_msgs::Pose p, int id);
   visualization_msgs::Marker makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id);
   visualization_msgs::Marker makeTextMessage(geometry_msgs::Pose p, std::string msg, int id);
   visualization_msgs::Marker deleteMarker(int id);
-  void publishMeasurementMarkers();
   //measurement
   double calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2);
+  void publishMeasurementMarkers();
 
   enum MeasurementApp {_BEGIN, _START_MEASUREMENT, _MOVING, _END_MEASUREMENT};
   enum MarkerID {_STATUS_TEXT, _START_POINT, _END_POINT, _LINE, _DISTANCE_TEXT, _DELETE};
@@ -166,6 +170,7 @@ private:
   bool camera_mode_, clutch_mode_;
   bool prev_grab_[2];
 
+  bool camera_quick_tap_;
   bool start_measurement_PSM_[2];
   int marker_side_;
   MeasurementApp measurement_status_;
@@ -204,6 +209,7 @@ private:
   ros::Subscriber subscriber_lcam_;
   ros::Subscriber subscriber_rcam_;
   ros::Subscriber subscriber_clutch_;
+  ros::Subscriber subscriber_camera_;
   ros::Subscriber subscriber_MTML_;
   ros::Subscriber subscriber_MTMR_;
   ros::Subscriber subscriber_overlay_text_;
@@ -220,6 +226,10 @@ private:
   ros::Publisher publisher_rvinci_;
   ros::Publisher publisher_markers;
   ros::Publisher publisher_text_;
+  ros::Publisher publisher_lwrench_;
+  ros::Publisher publisher_rwrench_;
+  ros::Publisher publisher_lgravity_;
+  ros::Publisher publisher_rgravity_;
 
   rviz::VectorProperty *prop_cam_focus_;
   rviz::QuaternionProperty *property_camrot_;

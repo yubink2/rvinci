@@ -182,6 +182,7 @@ void rvinciDisplay::onInitialize()
   pubsubSetup();
 
   // gui_.initialize();
+  publishWrenchGravity();
 
   start_measurement_PSM_[_LEFT] = false;
   start_measurement_PSM_[_RIGHT] = false;
@@ -235,6 +236,7 @@ void rvinciDisplay::pubsubSetup()
   subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/decklink/jhu_daVinci_left/image_raw", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
   subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
+  subscriber_camera_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/camera", 10, boost::bind(&rvinciDisplay::cameraCallback,this,_1));
   subscriber_lgrip_ = nh_.subscribe<std_msgs::Bool>("/MTML/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_LEFT));
   subscriber_rgrip_ = nh_.subscribe<std_msgs::Bool>("/MTMR/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_RIGHT));
   
@@ -252,6 +254,10 @@ void rvinciDisplay::pubsubSetup()
   publisher_markers = nh_.advertise<visualization_msgs::MarkerArray>("rvinci_markers", 10);
   publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
   publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
+  publisher_lwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 10);
+  publisher_rwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 10);
+  publisher_lgravity_ = nh_.advertise<std_msgs::Bool>("/MTML/use_gravity_compensation", 10);
+  publisher_rgravity_ = nh_.advertise<std_msgs::Bool>("/MTMR/use_gravity_compensation", 10);
 }
 
 void rvinciDisplay::leftCallback(const sensor_msgs::ImageConstPtr& img){
@@ -371,41 +377,59 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
   camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
-  Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
-  int grab[2];
-  for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
-  {
-    Ogre::Vector3 old_input = input_pos_[i];
-    geometry_msgs::Pose pose = r_input->gripper[i].pose;
+  if(!clutch_mode_) {  // be able to clutch cursors
+    Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
+    int grab[2];
+    for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
+    {
+      Ogre::Vector3 old_input = input_pos_[i];
+      geometry_msgs::Pose pose = r_input->gripper[i].pose;
 
-    input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
-    input_pos_[i]*=prop_input_scalar_->getVector();
-    inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
-    // inori[i]= camor*(orshift*inori[i]);
+      input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
+      input_pos_[i] *= prop_input_scalar_->getVector();
+      inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
+      // inori[i]= camor*(orshift*inori[i]);
 
-    input_change_[i] = (input_pos_[i] - old_input);
+      input_change_[i] = (input_pos_[i] - old_input);
+    }
+
+    geometry_msgs::Pose curspose;
+
+    for (int i = 0; i<2; ++i)
+    {
+      cursor_[i].position.x += input_change_[i].x;
+      cursor_[i].position.y += input_change_[i].y;
+      cursor_[i].position.z += input_change_[i].z;
+      cursor_[i].orientation.x = inori[i].x;
+      cursor_[i].orientation.y = inori[i].y;
+      cursor_[i].orientation.z = inori[i].z;
+      cursor_[i].orientation.w = inori[i].w;
+      grab[i] = getaGrip(r_input->gripper[i].grab, i);
+    }
+    publishCursorUpdate(grab);
+    
+    /*
+      * inital_vect is constantly calculated, to set origin vector between grippers when
+      * camera mode is triggered.
+      */
+    initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
+    initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
+
+    //DEBUG
+    ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
+    ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
   }
-
-  geometry_msgs::Pose curspose;
-
-  for (int i = 0; i<2; ++i)
-  {
-    cursor_[i].position.x += input_change_[i].x;
-    cursor_[i].position.y += input_change_[i].y;
-    cursor_[i].position.z += input_change_[i].z;
-    cursor_[i].orientation.x = inori[i].x;
-    cursor_[i].orientation.y = inori[i].y;
-    cursor_[i].orientation.z = inori[i].z;
-    cursor_[i].orientation.w = inori[i].w;
-    grab[i] = getaGrip(r_input->gripper[i].grab, i);
-  }
-  publishCursorUpdate(grab);
-  /*
-    * inital_vect is constantly calculated, to set origin vector between grippers when
-    * camera mode is triggered.
-    */
-  initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
-  initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
+  // else  //to avoid an erroneously large input_update_ following clutched movement
+  // {
+  //   for(int i = 0; i<2; ++i)
+  //   {
+  //     geometry_msgs::Pose pose = r_input->gripper[i].pose;
+  //     input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
+  //     input_pos_[i]*= prop_input_scalar_->getVector();
+  //     initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
+  //     initial_cvect_.normalise();
+  //   }
+  // }
 }
 
 void rvinciDisplay::publishCursorUpdate(int grab[2])
@@ -606,7 +630,7 @@ void rvinciDisplay::onEnable()
 {
   if(!camera_[_LEFT])
   {
-  cameraSetup();
+    cameraSetup();
   }
   render_widget_->setVisible(true);
   render_widget_R_->setVisible(true);
@@ -768,9 +792,17 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
 {
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
   rvmsg_.clutch = msg->buttons[0];
+}
 
-  // MTM measurement - if clutched while gripper closed, begin measurement
-  if (rvmsg_.clutch && !rvmsg_.gripper[marker_side_].grab)
+void rvinciDisplay::cameraCallback(const sensor_msgs::Joy::ConstPtr& msg) 
+{
+  // buttons: 0 - released, 1 - pressed, 2 - quick tap
+  rvmsg_.camera = msg->buttons[0]; 
+  if (msg->buttons[0] == 2) camera_quick_tap_ = true;
+  else camera_quick_tap_ = false;
+
+  // MTM measurement - if camera quick tapped while one gripper closed, begin measurement
+  if (camera_quick_tap_ && !rvmsg_.gripper[marker_side_].grab)
   {
     switch (measurement_status_)
     {
@@ -783,18 +815,19 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
       case _MOVING: 
         measurement_status_ = _END_MEASUREMENT; 
         break;
-      case _END_MEASUREMENT: 
-        measurement_status_ = _BEGIN; 
-        break;
     }
   }
+  if (camera_quick_tap_ && measurement_status_ == _END_MEASUREMENT)
+  {
+    measurement_status_ = _BEGIN; 
+  }
 
-  // PSM measurement - if clutched while left & right gripper closed, end measurement
-  if (rvmsg_.clutch && measurement_status_PSM_ == _END_MEASUREMENT)
+  // PSM measurement - if camera quick tapped while left & right gripper closed, end measurement
+  if (camera_quick_tap_ && measurement_status_PSM_ == _END_MEASUREMENT)
   {
     measurement_status_PSM_ = _BEGIN;
   }
-  else if (rvmsg_.clutch && start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
+  else if (camera_quick_tap_ && start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
   {
     measurement_status_PSM_ = _END_MEASUREMENT;
   }
@@ -824,13 +857,13 @@ void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
 void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 {
   // MTM measurement
-  if (!rvmsg_.gripper[i].grab && grab->data && marker_side_ == i)
+  if (!rvmsg_.gripper[i].grab && grab->data && marker_side_ == i && measurement_status_ != _END_MEASUREMENT)
   {
     measurement_status_ = _BEGIN;  //if gripper released during measurement, status back to BEGIN
   }
-  if (!grab->data) 
+  if (!grab->data && measurement_status_ == _BEGIN) 
   {
-    marker_side_ = i;
+    marker_side_ = i;  //gripper closed from another arm shouldnt interrupt the measurement process
   }
 
   // PSM measurement
@@ -850,9 +883,24 @@ void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 
 double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)
 {
-  return std::sqrt( p1.position.x*p2.position.x
-                    + p1.position.y*p2.position.y
-                    + p1.position.z*p2.position.z );
+  return std::sqrt( std::pow(p1.position.x-p2.position.x, 2)
+                    + std::pow(p1.position.y-p2.position.y, 2)
+                    + std::pow(p1.position.z-p2.position.z, 2) );
+}
+
+void rvinciDisplay::publishWrenchGravity()
+{
+  std_msgs::Bool gravity;
+  gravity.data = true;
+  publisher_lgravity_.publish(gravity);
+  publisher_rgravity_.publish(gravity);
+
+  geometry_msgs::WrenchStamped wr;
+  wr.header.stamp = ros::Time::now();
+  wr.wrench.force.x = wr.wrench.force.y = wr.wrench.force.z = 0;
+  wr.wrench.torque.x = wr.wrench.torque.y = wr.wrench.torque.z = 0;
+  publisher_lwrench_.publish(wr);
+  publisher_rwrench_.publish(wr);
 }
 
 }//namespace rvinci
