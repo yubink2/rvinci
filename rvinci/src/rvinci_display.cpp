@@ -105,6 +105,8 @@ rvinciDisplay::rvinciDisplay()
                                                   "Orientation of the camera",this);
   camera_[_LEFT] = 0;
   camera_[_RIGHT]= 0;
+
+  ROS_INFO_STREAM("* constructor");
   camera_ipd_ = Ogre::Vector3(0.03,0.0,0.0);
 
   buffer_[0] = NULL;
@@ -121,20 +123,21 @@ rvinciDisplay::rvinciDisplay()
 }
 rvinciDisplay::~rvinciDisplay()
 {
+  window_->removeViewport(0);
+  window_R_->removeViewport(0);
   for(int i = 0; i<2; ++i)
   {
     if (viewport_[i])
-   {
-      window_->removeViewport(0);
+    {
       viewport_[i] = 0;
     }
 
-  if (camera_[i])
-   {
+    if (camera_[i])
+    {
       camera_[i]->getParentSceneNode()->detachObject(camera_[i]);
       scene_manager_->destroyCamera(camera_[i]);
       camera_[i] = 0;
-   }
+    }
   }
   if (camera_node_)
   {
@@ -143,7 +146,9 @@ rvinciDisplay::~rvinciDisplay()
     camera_node_ = 0;
   }
   window_ = 0;
+  window_R_ = 0;
   delete render_widget_;
+  delete render_widget_R_;
 //  delete prop_manual_coords_;
   delete prop_cam_focus_;
   delete prop_camera_posit_;
@@ -182,7 +187,7 @@ void rvinciDisplay::onInitialize()
   pubsubSetup();
 
   // gui_.initialize();
-  publishWrenchGravity();
+  // publishWrenchGravity();
 
   start_measurement_PSM_[_LEFT] = false;
   start_measurement_PSM_[_RIGHT] = false;
@@ -215,13 +220,13 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
   rvmsg_.header.stamp = ros::Time::now();
   publisher_rvinci_.publish(rvmsg_);
 
-  switch (measurement_status_)
-  {
-    case _BEGIN: ROS_INFO_STREAM("measurement status: _BEGIN"); break;
-    case _START_MEASUREMENT: ROS_INFO_STREAM("measurement status: _START_MEASUREMENT"); break;
-    case _MOVING: ROS_INFO_STREAM("measurement status: _MOVING"); break;
-    case _END_MEASUREMENT: ROS_INFO_STREAM("measurement status: _END_MEASUREMENT"); break;
-  }
+  // switch (measurement_status_)
+  // {
+  //   case _BEGIN: ROS_INFO_STREAM("measurement status: _BEGIN"); break;
+  //   case _START_MEASUREMENT: ROS_INFO_STREAM("measurement status: _START_MEASUREMENT"); break;
+  //   case _MOVING: ROS_INFO_STREAM("measurement status: _MOVING"); break;
+  //   case _END_MEASUREMENT: ROS_INFO_STREAM("measurement status: _END_MEASUREMENT"); break;
+  // }
 
   publishMeasurementMarkers();
 }
@@ -375,26 +380,36 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
    orshift=orshift* Ogre::Quaternion(0,0,1,0);
    Ogre::Quaternion inori[2];
 
-  camera_mode_ = r_input->camera;
+  // camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
-  if(!clutch_mode_) {  // be able to clutch cursors
-    Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
+  if(!clutch_mode_)  // be able to clutch cursors
+  {  
+    // Ogre::Quaternion camor =camera_[_LEFT]->getRealOrientation();
     int grab[2];
     for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
     {
       Ogre::Vector3 old_input = input_pos_[i];
       geometry_msgs::Pose pose = r_input->gripper[i].pose;
 
+      // ROS_INFO_STREAM("*** "<<i<<" POSE: "<<pose.position.x<<" "<<pose.position.y<<" "<<pose.position.z);  // good
+
       input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
       input_pos_[i] *= prop_input_scalar_->getVector();
+
+      // ROS_INFO_STREAM("*** "<<i<<" INPUT POSE: "<<input_pos_[i].x<<" "<<input_pos_[i].y<<" "<<input_pos_[i].z);  // good
+
       inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
       // inori[i]= camor*(orshift*inori[i]);
 
       input_change_[i] = (input_pos_[i] - old_input);
+      // ROS_INFO_STREAM("*** "<<i<<" INPUT CHANGE: "<<input_change_[i].x<<" "<<input_change_[i].y<<" "<<input_change_[i].z);  // good
     }
 
     geometry_msgs::Pose curspose;
+
+    ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
+    ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
 
     for (int i = 0; i<2; ++i)
     {
@@ -408,6 +423,9 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       grab[i] = getaGrip(r_input->gripper[i].grab, i);
     }
     publishCursorUpdate(grab);
+
+    // ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);  // bad
+    // ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
     
     /*
       * inital_vect is constantly calculated, to set origin vector between grippers when
@@ -416,9 +434,8 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
     initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
     initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
 
-    //DEBUG
-    ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
-    ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
+    // ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
+    // ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
   }
   // else  //to avoid an erroneously large input_update_ following clutched movement
   // {
@@ -553,8 +570,8 @@ void rvinciDisplay::cameraSetup()
   viewport_[_RIGHT] = window_R_->addViewport(camera_[_RIGHT]);
   viewport_[_RIGHT]->setBackgroundColour(bg_color);
   
-  viewport_[0]->setVisibilityMask( 0x0F );
-  viewport_[1]->setVisibilityMask( 0xF0 );
+  viewport_[_LEFT]->setVisibilityMask( 0x0F );
+  viewport_[_RIGHT]->setVisibilityMask( 0xF0 );
 
   cameraReset();
 }
@@ -594,6 +611,7 @@ void rvinciDisplay::cameraUpdate()
      camera_[_RIGHT]->lookAt(prop_cam_focus_->getVector());
     }*/
   // ROS_INFO_STREAM("*** cameraUpdate()");
+
   if(camera_mode_)
   {
 
@@ -611,7 +629,7 @@ void rvinciDisplay::cameraUpdate()
       property_camrot_->setQuaternion(camera_[_LEFT]->getRealOrientation());
       prop_camera_posit_->setVector(camera_pos_ + property_camrot_->getQuaternion()*camera_[_LEFT]->getPosition());
       prop_cam_focus_->setVector(camera_node_->getPosition());
-}
+  }
 }
 void rvinciDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
@@ -636,6 +654,7 @@ void rvinciDisplay::onEnable()
   render_widget_->setVisible(true);
   render_widget_R_->setVisible(true);
   cameraReset();
+  ROS_INFO_STREAM("* onEnable");
 }
 void rvinciDisplay::onDisable()
 {
@@ -798,40 +817,44 @@ void rvinciDisplay::clutchCallback(const sensor_msgs::Joy::ConstPtr& msg)
 void rvinciDisplay::cameraCallback(const sensor_msgs::Joy::ConstPtr& msg) 
 {
   // buttons: 0 - released, 1 - pressed, 2 - quick tap
-  rvmsg_.camera = msg->buttons[0]; 
+  // rvmsg_.camera = msg->buttons[0]; 
+
   if (msg->buttons[0] == 2) camera_quick_tap_ = true;
   else camera_quick_tap_ = false;
 
-  // MTM measurement - if camera quick tapped while one gripper closed, begin measurement
-  if (camera_quick_tap_ && !rvmsg_.gripper[marker_side_].grab)
-  {
-    switch (measurement_status_)
-    {
-      case _BEGIN: 
-        measurement_status_ = _START_MEASUREMENT; 
-        break;
-      case _START_MEASUREMENT: 
-        measurement_status_ = _MOVING; 
-        break;
-      case _MOVING: 
-        measurement_status_ = _END_MEASUREMENT; 
-        break;
-    }
-  }
-  if (camera_quick_tap_ && measurement_status_ == _END_MEASUREMENT)
-  {
-    measurement_status_ = _BEGIN; 
-  }
+  // // MTM measurement - if camera quick tapped while one gripper closed, begin measurement
+  // if (camera_quick_tap_ && !rvmsg_.gripper[marker_side_].grab)
+  // {
+  //   switch (measurement_status_)
+  //   {
+  //     case _BEGIN: 
+  //       measurement_status_ = _START_MEASUREMENT; 
+  //       break;
+  //     case _START_MEASUREMENT: 
+  //       measurement_status_ = _MOVING; 
+  //       break;
+  //     case _MOVING: 
+  //       measurement_status_ = _END_MEASUREMENT; 
+  //       break;
+  //     case _END_MEASUREMENT: 
+  //       measurement_status_ = _BEGIN; 
+  //       break;
+  //   }
+  // }
+  // else if (camera_quick_tap_ && measurement_status_ == _END_MEASUREMENT)
+  // {
+  //   measurement_status_ = _BEGIN; 
+  // }
 
-  // PSM measurement - if camera quick tapped while left & right gripper closed, end measurement
-  if (camera_quick_tap_ && measurement_status_PSM_ == _END_MEASUREMENT)
-  {
-    measurement_status_PSM_ = _BEGIN;
-  }
-  else if (camera_quick_tap_ && start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
-  {
-    measurement_status_PSM_ = _END_MEASUREMENT;
-  }
+  // // PSM measurement - if camera quick tapped while left & right gripper closed, end measurement
+  // if (camera_quick_tap_ && measurement_status_PSM_ == _END_MEASUREMENT)
+  // {
+  //   measurement_status_PSM_ = _BEGIN;
+  // }
+  // else if (camera_quick_tap_ && start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
+  // {
+  //   measurement_status_PSM_ = _END_MEASUREMENT;
+  // }
 }
 
 void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
