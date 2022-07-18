@@ -237,6 +237,7 @@ void rvinciDisplay::pubsubSetup()
   subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/decklink/jhu_daVinci_right/image_raw", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
   subscriber_camera_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/camera", 10, boost::bind(&rvinciDisplay::cameraCallback,this,_1));
+  subscriber_coag_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/coag", 10, boost::bind(&rvinciDisplay::coagCallback,this,_1));
   subscriber_lgrip_ = nh_.subscribe<std_msgs::Bool>("/MTML/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_LEFT));
   subscriber_rgrip_ = nh_.subscribe<std_msgs::Bool>("/MTMR/gripper/closed",10,boost::bind(&rvinciDisplay::gripCallback,this,_1,_RIGHT));
   
@@ -879,6 +880,11 @@ void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 
   //if "pinched" -> false, if released -> true
   rvmsg_.gripper[i].grab = grab->data;
+}
+
+void rvinciDisplay::coagCallback(const sensor_msgs::Joy::ConstPtr& msg)
+{
+
 }
 
 double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)

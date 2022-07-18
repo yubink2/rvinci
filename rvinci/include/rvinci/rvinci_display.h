@@ -145,6 +145,7 @@ private:
   void MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
+  void coagCallback(const sensor_msgs::Joy::ConstPtr& msg);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
@@ -210,6 +211,7 @@ private:
   ros::Subscriber subscriber_rcam_;
   ros::Subscriber subscriber_clutch_;
   ros::Subscriber subscriber_camera_;
+  ros::Subscriber subscriber_coag_;
   ros::Subscriber subscriber_MTML_;
   ros::Subscriber subscriber_MTMR_;
   ros::Subscriber subscriber_overlay_text_;
