@@ -151,7 +151,8 @@ private:
   //!Logic for grip state, used in interaction cursor 3D display type.
   int getaGrip(bool, int);
   //publish wrench 0 and gravity compensation
-  void publishWrenchGravity();
+  void publishGravity();
+  void publishWrench();
   //visualization
   visualization_msgs::Marker makeMarker(geometry_msgs::Pose p, int id);
   visualization_msgs::Marker makeLineMarker(geometry_msgs::Point p1, geometry_msgs::Point p2, int id);
@@ -168,8 +169,10 @@ private:
   jsk_rviz_plugins::OverlayText text_;
   // std_msgs::String text_message_;
 
-  bool camera_mode_, clutch_mode_;
+  bool camera_mode_, clutch_mode_, coag_mode_;
   bool prev_grab_[2];
+  bool wrench_published_;
+  bool gravity_published_;
 
   bool camera_quick_tap_;
   bool start_measurement_PSM_[2];
