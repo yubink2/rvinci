@@ -106,7 +106,6 @@ rvinciDisplay::rvinciDisplay()
   camera_[_LEFT] = 0;
   camera_[_RIGHT]= 0;
 
-  ROS_INFO_STREAM("* constructor");
   camera_ipd_ = Ogre::Vector3(0.03,0.0,0.0);
 
   buffer_[0] = NULL;
@@ -120,6 +119,12 @@ rvinciDisplay::rvinciDisplay()
   texture_[0].setNull();
   texture_[1].setNull();
 
+  // cursor_[_LEFT].position.x = cursor_[_LEFT].position.y = cursor_[_LEFT].position.z = 0;
+  // cursor_[_LEFT].orientation.x = cursor_[_LEFT].orientation.y = cursor_[_LEFT].orientation.z = 0;
+  // cursor_[_LEFT].orientation.w = 1;
+  // cursor_[_RIGHT].position.x = cursor_[_RIGHT].position.y = cursor_[_RIGHT].position.z = 0;
+  // cursor_[_RIGHT].orientation.x = cursor_[_RIGHT].orientation.y = cursor_[_RIGHT].orientation.z = 0;
+  // cursor_[_RIGHT].orientation.w = 1;
 }
 rvinciDisplay::~rvinciDisplay()
 {
@@ -194,6 +199,9 @@ void rvinciDisplay::onInitialize()
 
   measurement_status_ = _BEGIN;
   measurement_status_PSM_ = _BEGIN;
+
+  input_pos_[_LEFT].x = input_pos_[_LEFT].y = input_pos_[_LEFT].z = 0;
+  input_pos_[_RIGHT].x = input_pos_[_RIGHT].y = input_pos_[_RIGHT].z = 0;
 }
 void rvinciDisplay::update(float wall_dt, float ros_dt)
 {
@@ -219,6 +227,9 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
 
   rvmsg_.header.stamp = ros::Time::now();
   publisher_rvinci_.publish(rvmsg_);
+
+  // ROS_INFO_STREAM("rvmsg left pose: "<<rvmsg_.gripper[_LEFT].pose.position.x<<" "<<rvmsg_.gripper[_LEFT].pose.position.y<<" "<<rvmsg_.gripper[_LEFT].pose.position.z);
+  // ROS_INFO_STREAM("rvmsg right pose: "<<rvmsg_.gripper[_RIGHT].pose.position.x<<" "<<rvmsg_.gripper[_RIGHT].pose.position.y<<" "<<rvmsg_.gripper[_RIGHT].pose.position.z);
 
   // switch (measurement_status_)
   // {
@@ -376,10 +387,6 @@ void rvinciDisplay::gravityCompensation()
 
 void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr& r_input)
 {
-   Ogre::Quaternion orshift(0,0,-sqrt(0.5),sqrt(0.5));  //shifts incoming davinci orientation into world frame
-   orshift=orshift* Ogre::Quaternion(0,0,1,0);
-   Ogre::Quaternion inori[2];
-
   // camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
@@ -392,50 +399,43 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       Ogre::Vector3 old_input = input_pos_[i];
       geometry_msgs::Pose pose = r_input->gripper[i].pose;
 
-      // ROS_INFO_STREAM("*** "<<i<<" POSE: "<<pose.position.x<<" "<<pose.position.y<<" "<<pose.position.z);  // good
-
       input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
       input_pos_[i] *= prop_input_scalar_->getVector();
 
-      // ROS_INFO_STREAM("*** "<<i<<" INPUT POSE: "<<input_pos_[i].x<<" "<<input_pos_[i].y<<" "<<input_pos_[i].z);  // good
-
-      inori[i] = Ogre::Quaternion(pose.orientation.w,pose.orientation.x,pose.orientation.y,pose.orientation.z);
-      // inori[i]= camor*(orshift*inori[i]);
-
       input_change_[i] = (input_pos_[i] - old_input);
-      // ROS_INFO_STREAM("*** "<<i<<" INPUT CHANGE: "<<input_change_[i].x<<" "<<input_change_[i].y<<" "<<input_change_[i].z);  // good
     }
 
     geometry_msgs::Pose curspose;
 
-    ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
-    ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
-
     for (int i = 0; i<2; ++i)
     {
+      geometry_msgs::Pose pose = r_input->gripper[i].pose;
+      // if (input_change_[i].x < 1) {
+      //   cursor_[i].position.x += input_change_[i].x;
+      // }
+      // if (input_change_[i].y < 1) {
+      //   cursor_[i].position.y += input_change_[i].y;
+      // }
+      // if (input_change_[i].z < 1) {
+      //   cursor_[i].position.z += input_change_[i].z;
+      // }
       cursor_[i].position.x += input_change_[i].x;
       cursor_[i].position.y += input_change_[i].y;
       cursor_[i].position.z += input_change_[i].z;
-      cursor_[i].orientation.x = inori[i].x;
-      cursor_[i].orientation.y = inori[i].y;
-      cursor_[i].orientation.z = inori[i].z;
-      cursor_[i].orientation.w = inori[i].w;
+      cursor_[i].orientation.x = pose.orientation.x;
+      cursor_[i].orientation.y = pose.orientation.y;
+      cursor_[i].orientation.z = pose.orientation.z;
+      cursor_[i].orientation.w = pose.orientation.w;
       grab[i] = getaGrip(r_input->gripper[i].grab, i);
     }
     publishCursorUpdate(grab);
 
-    // ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);  // bad
-    // ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
-    
     /*
       * inital_vect is constantly calculated, to set origin vector between grippers when
       * camera mode is triggered.
       */
     initial_cvect_ = (input_pos_[_LEFT] - input_pos_[_RIGHT]);
     initial_cvect_.normalise(); //normalise, otherwise issues when doing v1.getRotationto(v2);
-
-    // ROS_INFO_STREAM("*** CURSOR LEFT POSE: "<<cursor_[0].position.x<<" "<<cursor_[0].position.y<<" "<<cursor_[0].position.z);
-    // ROS_INFO_STREAM("*** CURSOR RIGHT POSE: "<<cursor_[1].position.x<<" "<<cursor_[1].position.y<<" "<<cursor_[1].position.z);
   }
   // else  //to avoid an erroneously large input_update_ following clutched movement
   // {
