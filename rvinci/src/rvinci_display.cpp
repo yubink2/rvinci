@@ -400,8 +400,9 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
   // camera_mode_ = r_input->camera;
   clutch_mode_ = r_input->clutch;
 
-  if(!clutch_mode_)  // be able to clutch cursors
+  if (!clutch_mode_)  // be able to clutch cursors
   {  
+    Ogre::Quaternion camor = camera_[_LEFT]->getRealOrientation();
     int grab[2];
     for (int i = 0; i<2; ++i)  //getting absolute and delta position of grippers, for use in cam and cursor.
     {
@@ -410,24 +411,14 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
 
       input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
       input_pos_[i] *= prop_input_scalar_->getVector();
-
       input_change_[i] = (input_pos_[i] - old_input);
+      input_change_[i].y *= 1.35;  //magnify yz cursor movements
+      input_change_[i].z *= 1.7;
     }
 
-    geometry_msgs::Pose curspose;
-
-    for (int i = 0; i<2; ++i)
+    for (int i=0; i<2; ++i)
     {
       geometry_msgs::Pose pose = r_input->gripper[i].pose;
-      // if (input_change_[i].x < 1) {
-      //   cursor_[i].position.x += input_change_[i].x;
-      // }
-      // if (input_change_[i].y < 1) {
-      //   cursor_[i].position.y += input_change_[i].y;
-      // }
-      // if (input_change_[i].z < 1) {
-      //   cursor_[i].position.z += input_change_[i].z;
-      // }
       cursor_[i].position.x += input_change_[i].x;
       cursor_[i].position.y -= input_change_[i].y;
       cursor_[i].position.z -= input_change_[i].z;
@@ -437,6 +428,8 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       cursor_[i].orientation.w = pose.orientation.w;
       grab[i] = getaGrip(r_input->gripper[i].grab, i);
     }
+
+    prop_cam_focus_->setVector(input_pos_[_RIGHT]);
     publishCursorUpdate(grab);
 
     /*
@@ -554,19 +547,12 @@ int rvinciDisplay::getaGrip(bool grab, int i)
 
 void rvinciDisplay::cameraSetup()
 {
-  // ROS_INFO_STREAM("*** cameraSetup()");
   Ogre::ColourValue bg_color = context_->getViewManager()->getRenderPanel()->getViewport()->getBackgroundColour();
   window_ = render_widget_->getRenderWindow();
   window_R_ = render_widget_R_->getRenderWindow();
 
   camera_[_LEFT] = scene_manager_->createCamera("Left Camera");
   camera_[_RIGHT] = scene_manager_->createCamera("Right Camera");
-  // for(int i = 0; i<2; ++i)
-  // {
-  //   camera_node_->attachObject(camera_[i]);
-  //   viewport_[i] = window_->addViewport(camera_[i],i,0.5f*i,0.0f,0.5f,1.0f);//,0,0.5f,0,0.5f,1.0f);
-  //   viewport_[i]->setBackgroundColour(bg_color);
-  // }
 
   camera_node_->attachObject(camera_[_LEFT]);
   viewport_[_LEFT] = window_->addViewport(camera_[_LEFT]);
@@ -584,11 +570,10 @@ void rvinciDisplay::cameraSetup()
 
 void rvinciDisplay::cameraReset()
 {
-  // ROS_INFO_STREAM("*** cameraReset()");
   camera_pos_= Ogre::Vector3(0.0f,0.0f,0.0f);
   camera_node_->setOrientation(1,0,0,0);
   camera_node_->setPosition(camera_pos_);
-  for (int i = 0; i<2; ++i)
+  for (int i=0; i<2; ++i)
   {
     camera_[i]->setNearClipDistance(0.01f);
     camera_[i]->setFarClipDistance(10000.0f);
@@ -603,6 +588,7 @@ void rvinciDisplay::cameraReset()
 
   prop_cam_reset_->setValue(QVariant(false));
 }
+
 void rvinciDisplay::cameraUpdate()
 {
 /*Manual camera control doesn't work perfectly, but is deemed unnecessary.
@@ -616,32 +602,31 @@ void rvinciDisplay::cameraUpdate()
      camera_[_LEFT]->lookAt(prop_cam_focus_->getVector());
      camera_[_RIGHT]->lookAt(prop_cam_focus_->getVector());
     }*/
-  // ROS_INFO_STREAM("*** cameraUpdate()");
 
-  if(camera_mode_)
-  {
+  // if(camera_mode_)
+  // {
+    Ogre::Vector3 newvect = input_pos_[_LEFT] - input_pos_[_RIGHT];
+    newvect.normalise();
+    Ogre::Quaternion camrot = initial_cvect_.getRotationTo(newvect);
 
- 
-      Ogre::Vector3 newvect = input_pos_[_LEFT] - input_pos_[_RIGHT];
-      newvect.normalise();
-      Ogre::Quaternion camrot  = initial_cvect_.getRotationTo(newvect);
+    camera_pos_ = Ogre::Vector3(camera_pos_ - ((input_change_[_RIGHT] + input_change_[_LEFT])));
+    camera_node_->setOrientation(camera_node_->getOrientation()*camrot.Inverse());
+    camera_node_->setPosition(camera_pos_);
 
-      camera_pos_ = Ogre::Vector3(camera_pos_ - ((input_change_[_RIGHT] + input_change_[_LEFT])));
-      camera_node_->setOrientation(camera_node_->getOrientation()*camrot.Inverse());
-      camera_node_->setPosition(camera_pos_);
+    initial_cvect_ = newvect;
 
-      initial_cvect_ = newvect;
-
-      property_camrot_->setQuaternion(camera_[_LEFT]->getRealOrientation());
-      prop_camera_posit_->setVector(camera_pos_ + property_camrot_->getQuaternion()*camera_[_LEFT]->getPosition());
-      prop_cam_focus_->setVector(camera_node_->getPosition());
-  }
+    property_camrot_->setQuaternion(camera_[_LEFT]->getRealOrientation());
+    prop_camera_posit_->setVector(camera_pos_ + property_camrot_->getQuaternion()*camera_[_LEFT]->getPosition());
+    prop_cam_focus_->setVector(camera_node_->getPosition());
+  // }
 }
+
 void rvinciDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   // cameraUpdate();
   // gui_.show();
 }
+
 void rvinciDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
   window_ = render_widget_->getRenderWindow();
@@ -651,6 +636,7 @@ void rvinciDisplay::postRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 
   // gui_.hide();
 }
+
 void rvinciDisplay::onEnable()
 {
   if(!camera_[_LEFT])
@@ -661,6 +647,7 @@ void rvinciDisplay::onEnable()
   render_widget_R_->setVisible(true);
   cameraReset();
 }
+
 void rvinciDisplay::onDisable()
 {
   render_widget_ ->setVisible(false);
