@@ -146,6 +146,7 @@ private:
   void PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i);
   void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
   void coagCallback(const sensor_msgs::Joy::ConstPtr& msg);
+  void measurementCallback(const std_msgs::Bool::ConstPtr& msg);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
@@ -173,6 +174,7 @@ private:
   bool prev_grab_[2];
   bool wrench_published_;
   bool gravity_published_;
+  bool MTM_mm_;
 
   bool camera_quick_tap_;
   bool start_measurement_PSM_[2];
@@ -222,6 +224,7 @@ private:
   ros::Subscriber subscriber_rgrip_;
   ros::Subscriber subscriber_PSM1_;
   ros::Subscriber subscriber_PSM2_;
+  ros::Subscriber subscriber_mm_;
 
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
