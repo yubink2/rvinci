@@ -2,6 +2,7 @@
 This repository is based on RVinci from https://github.com/simonleonard/rvinci and 3D interaction cursors from https://github.com/aleeper/interaction_cursor_3d.
 
 # How to run 
+Launch the endoscope camera and camera calibration.
 ```
 roslaunch rvinci rviz_stereo_pipeline.launch rig_name:=jhu_daVinci
 ```
@@ -13,6 +14,7 @@ If want to teleoperate PSM:
 ```
 rosrun dvrk_robot dvrk_console_json -j console-MTMR-PSM1-MTML-PSM2-Teleop.json
 ```
+Launch rvinci.
 ```
 roslaunch rvinci rvinci_rviz.launch
 ```
