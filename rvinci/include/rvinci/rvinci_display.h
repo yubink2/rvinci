@@ -44,15 +44,18 @@
 
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Joy.h>
+#include <sensor_msgs/CameraInfo.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/WrenchStamped.h>
+#include <tf/transform_listener.h>
+#include <rviz/frame_manager.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
-#include "jsk_rviz_plugins/OverlayText.h"
+// #include "jsk_rviz_plugins/OverlayText.h"
 #include "rvinci/rvinci_gui.h"
 
 namespace Ogre
@@ -147,6 +150,7 @@ private:
   void gripCallback(const std_msgs::Bool::ConstPtr& grab, int i);
   void coagCallback(const sensor_msgs::Joy::ConstPtr& msg);
   void measurementCallback(const std_msgs::Bool::ConstPtr& msg);
+  void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   //!Publishes cursor position and grip state to interaction cursor 3D display type.
   void publishCursorUpdate(int grab[2]);
   //!Logic for grip state, used in interaction cursor 3D display type.
@@ -167,7 +171,7 @@ private:
   enum MarkerID {_STATUS_TEXT, _START_POINT, _END_POINT, _LINE, _DISTANCE_TEXT, _DELETE};
 
   rvinci_input_msg::rvinci_input rvmsg_;
-  jsk_rviz_plugins::OverlayText text_;
+  // jsk_rviz_plugins::OverlayText text_;
   // std_msgs::String text_message_;
 
   bool camera_mode_, clutch_mode_, coag_mode_;
@@ -225,6 +229,7 @@ private:
   ros::Subscriber subscriber_PSM1_;
   ros::Subscriber subscriber_PSM2_;
   ros::Subscriber subscriber_mm_;
+  ros::Subscriber subscriber_camera_info_;
 
   ros::Publisher publisher_rhcursor_;
   ros::Publisher publisher_lhcursor_;
@@ -233,7 +238,7 @@ private:
   ros::Publisher pub_robot_state_[2];
   ros::Publisher publisher_rvinci_;
   ros::Publisher publisher_markers;
-  ros::Publisher publisher_text_;
+  // ros::Publisher publisher_text_;
   ros::Publisher publisher_lwrench_;
   ros::Publisher publisher_rwrench_;
   ros::Publisher publisher_lgravity_;
@@ -256,6 +261,16 @@ private:
   geometry_msgs::Pose measurement_end_;
   geometry_msgs::Pose PSM_pose_start_;
   geometry_msgs::Pose PSM_pose_end_;
+
+  rviz::FrameManager frame_manager_;
+  double fx_;
+  double fy_;
+  double tx_;
+  double cx_;
+  double cy_;
+  std_msgs::Header cam_header_;
+  double img_height_;
+  double img_width_;
 
   // RvinciGui gui_;
 

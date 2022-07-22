@@ -59,6 +59,7 @@
 #include <rviz/ogre_helpers/render_widget.h>
 #include <rviz/ogre_helpers/render_system.h>
 #include <rviz/frame_manager.h>
+#include <tf/transform_datatypes.h>
 
 #include <interaction_cursor_msgs/InteractionCursorUpdate.h>
 #include "interaction_cursor_rviz/interaction_cursor.h"
@@ -119,12 +120,7 @@ rvinciDisplay::rvinciDisplay()
   texture_[0].setNull();
   texture_[1].setNull();
 
-  // cursor_[_LEFT].position.x = cursor_[_LEFT].position.y = cursor_[_LEFT].position.z = 0;
-  // cursor_[_LEFT].orientation.x = cursor_[_LEFT].orientation.y = cursor_[_LEFT].orientation.z = 0;
-  // cursor_[_LEFT].orientation.w = 1;
-  // cursor_[_RIGHT].position.x = cursor_[_RIGHT].position.y = cursor_[_RIGHT].position.z = 0;
-  // cursor_[_RIGHT].orientation.x = cursor_[_RIGHT].orientation.y = cursor_[_RIGHT].orientation.z = 0;
-  // cursor_[_RIGHT].orientation.w = 1;
+  
 }
 rvinciDisplay::~rvinciDisplay()
 {
@@ -222,7 +218,7 @@ void rvinciDisplay::update(float wall_dt, float ros_dt)
     texture_[1]->getBuffer()->blitFromMemory( backgroundImage_[1]->getPixelBox(), b );
   }
 
-  // cameraUpdate();
+  cameraUpdate();
   window_ = render_widget_->getRenderWindow();
   window_->update(false);
   window_R_ = render_widget_R_->getRenderWindow();
@@ -262,8 +258,8 @@ void rvinciDisplay::pubsubSetup()
   rvmsg_.header.frame_id = "base_link";
 
   subscriber_input_ = nh_.subscribe<rvinci_input_msg::rvinci_input>(subtopic, 10, boost::bind(&rvinciDisplay::inputCallback,this,_1));
-  subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/left/image_rect_color", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
-  subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/right/image_rect_color", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
+  subscriber_lcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/stereo_processed/left/image", 10, boost::bind(&rvinciDisplay::leftCallback,this,_1));
+  subscriber_rcam_ = nh_.subscribe<sensor_msgs::Image>( "/jhu_daVinci/stereo_processed/right/image", 10, boost::bind(&rvinciDisplay::rightCallback,this,_1));
   subscriber_clutch_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/clutch", 10, boost::bind(&rvinciDisplay::clutchCallback,this,_1));
   subscriber_camera_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/camera", 10, boost::bind(&rvinciDisplay::cameraCallback,this,_1));
   subscriber_coag_ = nh_.subscribe<sensor_msgs::Joy>( "/footpedals/coag", 10, boost::bind(&rvinciDisplay::coagCallback,this,_1));
@@ -276,6 +272,7 @@ void rvinciDisplay::pubsubSetup()
   subscriber_PSM1_ = nh_.subscribe<geometry_msgs::PoseStamped>("/PSM1/measured_cp", 10, boost::bind(&rvinciDisplay::PSMCallback,this,_1, _RIGHT));
   subscriber_PSM2_ = nh_.subscribe<geometry_msgs::PoseStamped>("/PSM2/measured_cp", 10, boost::bind(&rvinciDisplay::PSMCallback,this,_1, _LEFT));
   subscriber_mm_ = nh_.subscribe<std_msgs::Bool>("/rvinci_measurement_MTM", 10, boost::bind(&rvinciDisplay::measurementCallback,this,_1));
+  subscriber_camera_info_ = nh_.subscribe<sensor_msgs::CameraInfo>("/jhu_daVinci/stereo_processed/right/camera_info", 10, boost::bind(&rvinciDisplay::cameraInfoCallback,this,_1));
 
   publisher_rhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_right/update",10);
   publisher_lhcursor_ = nh_.advertise<interaction_cursor_msgs::InteractionCursorUpdate>("rvinci_cursor_left/update",10);
@@ -284,7 +281,7 @@ void rvinciDisplay::pubsubSetup()
   
   publisher_markers = nh_.advertise<visualization_msgs::MarkerArray>("rvinci_markers", 10);
   publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
-  publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
+  // publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
   publisher_lwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 10);
   publisher_rwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 10);
   publisher_lgravity_ = nh_.advertise<std_msgs::Bool>("/MTML/use_gravity_compensation", 10);
@@ -582,7 +579,7 @@ void rvinciDisplay::cameraReset()
   for (int i=0; i<2; ++i)
   {
     camera_[i]->setNearClipDistance(0.01f);
-    camera_[i]->setFarClipDistance(10000.0f);
+    camera_[i]->setFarClipDistance(100.0f);
     camera_[i]->setFixedYawAxis(true, camera_node_->getOrientation() * Ogre::Vector3::UNIT_Z);
     camera_[i]->setPosition(camera_offset_ - camera_ipd_ + 2*i*camera_ipd_);
     camera_[i]->lookAt(camera_node_->getPosition());
@@ -597,39 +594,63 @@ void rvinciDisplay::cameraReset()
 
 void rvinciDisplay::cameraUpdate()
 {
-/*Manual camera control doesn't work perfectly, but is deemed unnecessary.
- Code left for future use, if desired.
+  bool getTransform_ret;
+  getTransform_ret = frame_manager_.getTransform(cam_header_, camera_pos_, camera_ori_);
+  if (img_width_ < 1 || img_height_ < 1) {
+    return;
+  }
 
-    if(prop_manual_coords_->getBool())
-   {
-     camera_pos_ = Ogre::Vector3(prop_camera_posit_->getVector());
-     camera_node_->setPosition(camera_pos_ - camera_offset_);
-     property_camrot_->setQuaternion(camera_[_LEFT]->getRealOrientation());
-     camera_[_LEFT]->lookAt(prop_cam_focus_->getVector());
-     camera_[_RIGHT]->lookAt(prop_cam_focus_->getVector());
-    }*/
+  ROS_INFO_STREAM("getTransform return value: "<<getTransform_ret);
+  camera_ori_ = camera_ori_ * Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
 
-  // if(camera_mode_)
-  // {
-    Ogre::Vector3 newvect = input_pos_[_LEFT] - input_pos_[_RIGHT];
-    newvect.normalise();
-    Ogre::Quaternion camrot = initial_cvect_.getRotationTo(newvect);
+  if (fx_ == 0) return;
 
-    camera_pos_ = Ogre::Vector3(camera_pos_ - ((input_change_[_RIGHT] + input_change_[_LEFT])));
-    camera_node_->setOrientation(camera_node_->getOrientation()*camrot.Inverse());
-    camera_node_->setPosition(camera_pos_);
+  double baseline = -1 * tx_/fx_;
+  Ogre::Vector3 right = camera_ori_ * Ogre::Vector3::UNIT_X;
 
-    initial_cvect_ = newvect;
+  ROS_INFO_STREAM("img width: "<<img_width_<<"img height: "<<img_height_);
 
-    property_camrot_->setQuaternion(camera_[_LEFT]->getRealOrientation());
-    prop_camera_posit_->setVector(camera_pos_ + property_camrot_->getQuaternion()*camera_[_LEFT]->getPosition());
-    prop_cam_focus_->setVector(camera_node_->getPosition());
-  // }
+  Ogre::Matrix4 proj_matrix;
+  proj_matrix = Ogre::Matrix4::ZERO;
+  proj_matrix[0][0] = 2.0 * fx_ / img_width_;
+  proj_matrix[1][1] = 2.0 * fy_ / img_height_;
+  proj_matrix[0][2] = 2.0 * (0.5 - cx_ / img_width_);
+  proj_matrix[1][2] = 2.0 * (cy_ / img_height_ - 0.5);
+  proj_matrix[2][2] = -(100 + 0.01) / (100 - 0.01);
+  proj_matrix[2][3] = -2.0 * (100 * 0.01) / (100 - 0.01);
+  proj_matrix[3][2] = -1;
+
+  camera_[_LEFT]->setCustomProjectionMatrix(true, proj_matrix);
+  camera_[_RIGHT]->setCustomProjectionMatrix(true, proj_matrix);
+
+  camera_[_LEFT]->setPosition(camera_pos_);
+  // camera_[_LEFT]->lookAt(0, 0, 0);
+  Ogre::Vector3 baseline_offset = baseline * right;
+  camera_[_LEFT]->setOrientation(camera_ori_);
+  camera_[_RIGHT]->setPosition(camera_pos_ + baseline_offset);
+  // camera_[_RIGHT]->lookAt(0, 0, 0);
+  camera_[_RIGHT]->setOrientation(camera_ori_);
+
+  frame_manager_.setFixedFrame("base_link");
+  // ROS_INFO_STREAM(frame_manager_.getFixedFrame());
+  // std::string errmsg;
+  // frame_manager_.frameHasProblems("base_link", ros::Time(0), errmsg);
+  // ROS_INFO_STREAM("frame has problem: "<<errmsg);
+  // frame_manager_.transformHasProblems("base_link", ros::Time(0), errmsg);
+  // ROS_INFO_STREAM("transform has problem: "<<errmsg);
+  // frame_manager_.frameHasProblems("jhu_daVinci_stereo_frame", ros::Time(0), errmsg);
+  // ROS_INFO_STREAM("frame has problem: "<<errmsg);
+  // frame_manager_.transformHasProblems("jhu_daVinci_stereo_frame", ros::Time(0), errmsg);
+  // ROS_INFO_STREAM("transform has problem: "<<errmsg);
+
+
+  ROS_INFO_STREAM("camera pos: "<<camera_pos_.x<<" "<<camera_pos_.y<<" "<<camera_pos_.z);
+  ROS_INFO_STREAM("camera offset: "<<baseline);
 }
 
 void rvinciDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
 {
-  // cameraUpdate();
+  cameraUpdate();
   // gui_.show();
 }
 
@@ -926,6 +947,18 @@ void rvinciDisplay::measurementCallback(const std_msgs::Bool::ConstPtr& msg)
     grab[_RIGHT] = 0;
     publishCursorUpdate(grab);
   }
+}
+
+void rvinciDisplay::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
+{
+  fx_ = msg->P[0];
+  tx_ = msg->P[3];
+  cx_ = msg->P[2];
+  cy_ = msg->P[6];
+  fy_ = msg->P[5];
+  cam_header_ = msg->header;
+  img_width_ = msg->width;
+  img_height_ = msg->height;
 }
 
 double rvinciDisplay::calculateDistance(geometry_msgs::Pose p1, geometry_msgs::Pose p2)

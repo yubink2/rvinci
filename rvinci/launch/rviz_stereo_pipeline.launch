@@ -8,10 +8,11 @@
   <arg name="right_cam_device" default="0"/>
 
   <!-- Arbitrary transform as an example, just need to publish to "/$(arg rig_name)_stereo_frame" -->
-  <node ns="$(arg rig_name)" name="stereo_transform" pkg="tf" type="static_transform_publisher" args="0 0 -1 0 0 0 /world /$(arg rig_name)_stereo_frame 10"/>
+  <!-- -0.05683 -2.6828 -2.0125 0.52573 -0.0026286 -0.0042531 0.85063 -->
+  <node ns="$(arg rig_name)" name="stereo_transform" pkg="tf" type="static_transform_publisher" args="0 -8 8 0 0 3.92699081699 /base_link /$(arg rig_name)_stereo_frame 10"/>
   
   <!-- left camera driver node -->
-  <include file="$(find rvinci)/launch/gscam_stereo_single.launch" ns="$(arg rig_name)">
+  <include ns="$(arg rig_name)/stereo_raw" file="$(find dvrk_stereo)/launch/gscam_stereo_single.launch">
     <arg name="camera_name" value="left"/>
     <arg name="camera_info_url" value="package://dvrk_config/$(arg rig_name)/left_camera_parameters.yaml"/>
     <arg name="device" value="$(arg left_cam_device)"/>
@@ -19,29 +20,20 @@
   </include>
 
   <!-- camera driver node -->
-  <include file="$(find rvinci)/launch/gscam_stereo_single.launch" ns="$(arg rig_name)">
+  <include ns="$(arg rig_name)/stereo_raw" file="$(find dvrk_stereo)/launch/gscam_stereo_single.launch">
     <arg name="camera_name" value="right"/>
     <arg name="camera_info_url" value="package://dvrk_config/$(arg rig_name)/right_camera_parameters.yaml"/>
     <arg name="device" value="$(arg right_cam_device)"/>
     <arg name="frame_id" value="$(arg rig_name)_stereo_frame"/>
   </include>
 
-  <node ns="$(arg rig_name)" name="$(arg rig_name)_stereo_proc" pkg="stereo_image_proc" type="stereo_image_proc">
+  <node ns="$(arg rig_name)/stereo_raw" name="$(arg rig_name)_stereo_proc" pkg="stereo_image_proc" type="stereo_image_proc">
     <param name="_approximate_sync" value="True"/>
   </node>
-
-  <node pkg="nodelet" type="nodelet" name="$(arg rig_name)_left_resize" args="standalone image_proc/resize">
-    <param name="width" type="int" value="1280"/>
-    <param name="height" type="int" value="1024"/>
-    <param name="image" value="$(arg rig_name)/left/image_rect_color"/>
-    <param name="camera_info" value="$(arg rig_name)/left/camera_info"/>
+  
+  <node ns="$(arg rig_name)/stereo_processed" name="$(arg rig_name)_stereo_resize" pkg="dvrk_stereo" type="dvrk_stereo">
+    <param name="~width" value="1280"/>
+    <param name="~height" value="1024"/>
+    <param name="~camera" value="/$(arg rig_name)/stereo_raw"/>
   </node>
-
-  <node pkg="nodelet" type="nodelet" name="$(arg rig_name)_right_resize" args="standalone image_proc/resize">
-    <param name="width" type="int" value="1280"/>
-    <param name="height" type="int" value="1024"/>
-    <param name="image" value="$(arg rig_name)/right/image_rect_color"/>
-    <param name="camera_info" value="$(arg rig_name)/right/camera_info"/>
-  </node>
-
 </launch>

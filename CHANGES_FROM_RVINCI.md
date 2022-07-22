@@ -6,7 +6,7 @@ if (POLICY CMP0048)
 endif (POLICY CMP0048)
 "
 
-* comment out "include(${QT_USE_FILE})"
+* comment out " include(${QT_USE_FILE}) "
 
 * edit find_packages for Qt to
 "
