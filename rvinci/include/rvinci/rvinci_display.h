@@ -55,8 +55,9 @@
 #include <rviz/frame_manager.h>
 
 #include <rvinci_input_msg/rvinci_input.h>
-// #include "jsk_rviz_plugins/OverlayText.h"
 #include "rvinci/rvinci_gui.h"
+
+#include <interactive_markers/interactive_marker_server.h>
 
 namespace Ogre
 {
@@ -171,7 +172,6 @@ private:
   enum MarkerID {_STATUS_TEXT, _START_POINT, _END_POINT, _LINE, _DISTANCE_TEXT, _DELETE};
 
   rvinci_input_msg::rvinci_input rvmsg_;
-  // jsk_rviz_plugins::OverlayText text_;
   // std_msgs::String text_message_;
 
   bool camera_mode_, clutch_mode_, coag_mode_;
@@ -238,7 +238,6 @@ private:
   ros::Publisher pub_robot_state_[2];
   ros::Publisher publisher_rvinci_;
   ros::Publisher publisher_markers;
-  // ros::Publisher publisher_text_;
   ros::Publisher publisher_lwrench_;
   ros::Publisher publisher_rwrench_;
   ros::Publisher publisher_lgravity_;
@@ -263,12 +262,12 @@ private:
   geometry_msgs::Pose PSM_pose_end_;
 
   rviz::FrameManager frame_manager_;
+  std_msgs::Header cam_header_;
   double fx_;
   double fy_;
   double tx_;
   double cx_;
   double cy_;
-  std_msgs::Header cam_header_;
   double img_height_;
   double img_width_;
 

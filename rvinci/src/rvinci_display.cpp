@@ -281,7 +281,6 @@ void rvinciDisplay::pubsubSetup()
   
   publisher_markers = nh_.advertise<visualization_msgs::MarkerArray>("rvinci_markers", 10);
   publisher_rvinci_ = nh_.advertise<rvinci_input_msg::rvinci_input>("/rvinci_input_update",10);
-  // publisher_text_ = nh_.advertise<jsk_rviz_plugins::OverlayText>("/rvinci_overlay_text", 10);
   publisher_lwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 10);
   publisher_rwrench_ = nh_.advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 10);
   publisher_lgravity_ = nh_.advertise<std_msgs::Bool>("/MTML/use_gravity_compensation", 10);
@@ -414,7 +413,7 @@ void rvinciDisplay::inputCallback(const rvinci_input_msg::rvinci_input::ConstPtr
       input_pos_[i] = Ogre::Vector3(pose.position.x, pose.position.y, pose.position.z);// + cursor_offset_[i];
       input_pos_[i] *= prop_input_scalar_->getVector();
       input_change_[i] = (input_pos_[i] - old_input);
-      input_change_[i].y *= 1.35;  //magnify yz cursor movements
+      // input_change_[i].y *= 1.35;  //magnify yz cursor movements
       input_change_[i].z *= 1.7;
     }
 
@@ -462,58 +461,18 @@ void rvinciDisplay::publishCursorUpdate(int grab[2])
   interaction_cursor_msgs::InteractionCursorUpdate lhcursor;
   interaction_cursor_msgs::InteractionCursorUpdate rhcursor;
 
-  //marker implementation not working!
-  // visualization_msgs::Marker lhmarker;
-  // visualization_msgs::Marker rhmarker;
-  // lhmarker.header.frame_id = "base_link";
-  // lhmarker.header.stamp = ros::Time::now();
-  // lhmarker.ns = "left_marker";
-  // lhmarker.id = _LEFT;
-  // lhmarker.type = visualization_msgs::Marker::CUBE;
-  // lhmarker.action = visualization_msgs::Marker::ADD;
-  // lhmarker.scale.x = 0.1;
-  // lhmarker.scale.y = 0.1;
-  // lhmarker.scale.z = 0.1;
-  // lhmarker.color.r = 1.0;
-  // lhmarker.color.g = 0.0;
-  // lhmarker.color.b = 0.0;
-  // lhmarker.color.a = 1.0;
-
   lhcursor.pose.header.frame_id = frame;
   lhcursor.pose.header.stamp = ros::Time::now();
   lhcursor.pose.pose = cursor_[_LEFT];
   lhcursor.button_state = grab[_LEFT];
 
-  // lhcursor.markers.push_back(lhmarker);
-
   rhcursor.pose.header.frame_id = frame;
   rhcursor.pose.header.stamp = ros::Time::now();
   rhcursor.pose.pose = cursor_[_RIGHT];
   rhcursor.button_state = grab[_RIGHT];
-  // rhcursor.markers.type = visualization_msgs::Marker::CUBE;
 
-  // if (!coag_mode_) 
-  // {
-  //   // for (int i=0; i<sizeof(lhcursor.markers)/sizeof(lhcursor.markers[0]); i++) 
-  //   // {
-  //   //   lhcursor.markers[i].color.a = 1.0;
-  //   //   rhcursor.markers[i].color.a = 1.0;
-  //   //   ROS_INFO_STREAM("cursors "<<i);
-  //   // }
-  //   lhcursor.markers[0].color.a = 1.0;
-  //   // rhcursor.markers[0].color.a = 1.0;
-  // }
-  // else 
-  // {
-  //   // for (int i=0; i<sizeof(lhcursor.markers)/sizeof(lhcursor.markers[0]); i++) 
-  //   // {
-  //   //   lhcursor.markers[i].color.a = 0.0;
-  //   //   rhcursor.markers[i].color.a = 0.0;
-  //   //   ROS_INFO_STREAM("no cursors"<<i);
-  //   // }
-  //   lhcursor.markers[0].color.a = 0.0;
-  //   // rhcursor.markers[0].color.a = 0.0;
-  // }
+  // ROS_INFO_STREAM("left cursor: "<<cursor_[_LEFT].position.x<<" "<<cursor_[_LEFT].position.y<<" "<<cursor_[_LEFT].position.z);
+  // ROS_INFO_STREAM("right cursor: "<<cursor_[_RIGHT].position.x<<" "<<cursor_[_RIGHT].position.y<<" "<<cursor_[_RIGHT].position.z);
 
   publisher_lhcursor_.publish(lhcursor);
   publisher_rhcursor_.publish(rhcursor);
@@ -525,25 +484,21 @@ int rvinciDisplay::getaGrip(bool grab, int i)
   if(!grab && prev_grab_[i])
     {
     prev_grab_[i] = grab;
-    // ROS_INFO_STREAM("Grab");
     return 2;//Grab object
     }
   if(!grab && !prev_grab_[i])
     {
     prev_grab_[i] = grab;
-    // ROS_INFO_STREAM("hold");
     return 1;//hold object
     }
   if(grab && !prev_grab_[i])
     {
     prev_grab_[i] = grab;
-    // ROS_INFO_STREAM("Release");
     return 3;//Release object
     }
   if(grab && prev_grab_[i])
     {
     prev_grab_[i] = grab;
-    // ROS_INFO_STREAM("none");
     return 0;//none
    }
 }
@@ -600,7 +555,7 @@ void rvinciDisplay::cameraUpdate()
     return;
   }
 
-  ROS_INFO_STREAM("getTransform return value: "<<getTransform_ret);
+  // ROS_INFO_STREAM("getTransform return value: "<<getTransform_ret);
   camera_ori_ = camera_ori_ * Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
 
   if (fx_ == 0) return;
@@ -608,7 +563,7 @@ void rvinciDisplay::cameraUpdate()
   double baseline = -1 * tx_/fx_;
   Ogre::Vector3 right = camera_ori_ * Ogre::Vector3::UNIT_X;
 
-  ROS_INFO_STREAM("img width: "<<img_width_<<"img height: "<<img_height_);
+  // ROS_INFO_STREAM("img width: "<<img_width_<<"img height: "<<img_height_);
 
   Ogre::Matrix4 proj_matrix;
   proj_matrix = Ogre::Matrix4::ZERO;
@@ -632,6 +587,7 @@ void rvinciDisplay::cameraUpdate()
   camera_[_RIGHT]->setOrientation(camera_ori_);
 
   frame_manager_.setFixedFrame("base_link");
+
   // ROS_INFO_STREAM(frame_manager_.getFixedFrame());
   // std::string errmsg;
   // frame_manager_.frameHasProblems("base_link", ros::Time(0), errmsg);
@@ -643,9 +599,8 @@ void rvinciDisplay::cameraUpdate()
   // frame_manager_.transformHasProblems("jhu_daVinci_stereo_frame", ros::Time(0), errmsg);
   // ROS_INFO_STREAM("transform has problem: "<<errmsg);
 
-
-  ROS_INFO_STREAM("camera pos: "<<camera_pos_.x<<" "<<camera_pos_.y<<" "<<camera_pos_.z);
-  ROS_INFO_STREAM("camera offset: "<<baseline);
+  // ROS_INFO_STREAM("camera pos: "<<camera_pos_.x<<" "<<camera_pos_.y<<" "<<camera_pos_.z);
+  // ROS_INFO_STREAM("camera offset: "<<baseline);
 }
 
 void rvinciDisplay::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
@@ -736,6 +691,7 @@ visualization_msgs::Marker rvinciDisplay::makeLineMarker(geometry_msgs::Point p1
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "base_link";
+  // marker.header.frame_id = "jhu_daVinci_stereo_frame";
   marker.header.stamp = ros::Time::now();
   marker.ns = "line_strip";
   marker.id = id;
@@ -816,11 +772,13 @@ void rvinciDisplay::publishMeasurementMarkers()
         marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
         marker_arr.markers.push_back( makeTextMessage(distance_pose, 
           std::to_string(calculateDistance(PSM_pose_start_, PSM_pose_end_)), _DISTANCE_TEXT) );
+        marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
         break;
       case _END_MEASUREMENT:
         marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
         marker_arr.markers.push_back( makeTextMessage(distance_pose, 
           std::to_string(calculateDistance(PSM_pose_start_, PSM_pose_end_)), _DISTANCE_TEXT) );
+        marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
         break;
     }
   }
@@ -897,6 +855,8 @@ void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
       case _RIGHT: PSM_pose_end_ = msg->pose; break;
     }
   }
+  // ROS_INFO_STREAM("PSM start: "<<PSM_pose_start_.position.x<<" "<<PSM_pose_start_.position.y<<" "<<PSM_pose_start_.position.z);
+  // ROS_INFO_STREAM("PSM end: "<<PSM_pose_end_.position.x<<" "<<PSM_pose_end_.position.y<<" "<<PSM_pose_end_.position.z);
 }
 
 void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
@@ -929,6 +889,18 @@ void rvinciDisplay::gripCallback(const std_msgs::Bool::ConstPtr& grab, int i)
 void rvinciDisplay::coagCallback(const sensor_msgs::Joy::ConstPtr& msg)
 {
   coag_mode_ = msg->buttons[0];
+  // if (coag_mode_) {
+  //   cursor_[_LEFT].position.x -= 10;
+  //   cursor_[_RIGHT].position.x -= 10;
+  // }
+  // else {
+  //   int grab[2];
+  //   cursor_[_LEFT].position.x += 10;
+  //   cursor_[_RIGHT].position.x += 10;
+  //   grab[_LEFT] = 0;
+  //   grab[_RIGHT] = 0;
+  //   publishCursorUpdate(grab);
+  // }
 }
 
 void rvinciDisplay::measurementCallback(const std_msgs::Bool::ConstPtr& msg) 

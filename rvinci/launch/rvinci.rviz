@@ -6,6 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /rvinciDisplay1
+        - /InteractionCursorDisplay1
+        - /InteractionCursorDisplay2
         - /MarkerArray1
       Splitter Ratio: 0.5
     Tree Height: 695
@@ -36,9 +38,9 @@ Visualization Manager:
   Class: ""
   Displays:
     - Camera Focus:
-        X: -4.2395301326625384e-38
-        Y: -2.468609982941526e-30
-        Z: -4.5839275364993416e-41
+        X: 0.8962940573692322
+        Y: -0.07998243719339371
+        Z: 0.05828538537025452
       Camera Orientation:
         W: 0.8506349921226501
         X: 0.5257329940795898
@@ -91,7 +93,7 @@ Visualization Manager:
       Class: rviz/InteractionCursorDisplay
       Cursor Alpha: 1
       Cursor Color: 255; 71; 71
-      Cursor Diameter: 0.10000000149011612
+      Cursor Diameter: 0.20000000298023224
       Enabled: true
       Name: InteractionCursorDisplay
       Show Axes: true
@@ -103,7 +105,7 @@ Visualization Manager:
       Class: rviz/InteractionCursorDisplay
       Cursor Alpha: 1
       Cursor Color: 80; 255; 20
-      Cursor Diameter: 0.10000000149011612
+      Cursor Diameter: 0.20000000298023224
       Enabled: true
       Name: InteractionCursorDisplay
       Show Axes: true
@@ -146,7 +148,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 5.80974006652832
+      Distance: 7.9288859367370605
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
