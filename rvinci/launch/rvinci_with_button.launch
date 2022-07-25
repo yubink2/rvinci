@@ -1,0 +1,6 @@
+<launch>
+  <node name="button_mode" type="button_mode" pkg="interactive_marker_tutorials" output="screen"/>
+  <node name="rviz" pkg="rviz" type="rviz"
+         args="-d $(find rvinci)/launch/rvinci.rviz" 
+         output="screen" />
+</launch>
