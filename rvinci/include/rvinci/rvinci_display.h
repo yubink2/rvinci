@@ -174,11 +174,13 @@ private:
   rvinci_input_msg::rvinci_input rvmsg_;
   // std_msgs::String text_message_;
 
-  bool camera_mode_, clutch_mode_, coag_mode_;
+  bool camera_mode_, clutch_mode_;
+  int  coag_mode_;
   bool prev_grab_[2];
   bool wrench_published_;
   bool gravity_published_;
   bool MTM_mm_;
+  bool coag_init_;
 
   bool camera_quick_tap_;
   bool start_measurement_PSM_[2];
@@ -270,8 +272,6 @@ private:
   double cy_;
   double img_height_;
   double img_width_;
-
-  // RvinciGui gui_;
 
 };
 
