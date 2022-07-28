@@ -1,5 +1,6 @@
 # dVRK Virtual Measurement Toolkit
 This repository is based on RVinci from https://github.com/simonleonard/rvinci and 3D interaction cursors from https://github.com/aleeper/interaction_cursor_3d.
+If you want to use our interactive mode, it is dependent on interactive marker tutorials package from https://github.com/ros-visualization/visualization_tutorials.
 
 # How to run 
 Launch the endoscope camera and camera calibration.
@@ -14,15 +15,16 @@ If want to teleoperate PSM:
 ```
 rosrun dvrk_robot dvrk_console_json -j console-MTMR-PSM1-MTML-PSM2-Teleop.json
 ```
-Launch rvinci.
+Launch rvinci. We have 3 different modes to do so.
+To launch rvinci:
 ```
 roslaunch rvinci rvinci_rviz.launch
 ```
-To use MTM measurement toolkit:
+To launch rvinci with buttons to select the mode for the measurement tool:
 ```
-rostopic pub /rvinci_measurement_MTM std_msgs/Bool "data: true"
+roslaunch rvinci rvinci_with_button.launch
 ```
-To use PSM measurement toolkit:
+To launch rvinci with interactive mode:
 ```
-rostopic pub /rvinci_measurement_MTM std_msgs/Bool "data: false"
+roslaunch rvinci rvinci_interactive.launch
 ```
