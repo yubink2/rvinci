@@ -18,7 +18,7 @@
   <node name="$(arg camera_name)" pkg="gscam" type="gscam" output="screen">
     <param name="camera_name" value="$(arg camera_name)"/>
     <param name="camera_info_url" value="$(arg camera_info_url)"/>
-    <param name="gscam_config" value="decklinkvideosrc connection=$(arg connection) device-number=$(arg device) ! videocrop top=$(arg crop_top) left=$(arg crop_left) right=$(arg crop_right) bottom=$(arg crop_bottom) ! videoconvert"/>
+    <param name="gscam_config" value="decklinkvideosrc connection=$(arg connection) device-number=$(arg device) ! videorate ! video/x-raw,framerate=25/2 ! videocrop top=$(arg crop_top) left=$(arg crop_left) right=$(arg crop_right) bottom=$(arg crop_bottom) ! videoconvert"/>
     <param name="frame_id" value="$(arg frame_id)"/>
     <!-- This needs to be set to false to avoid dropping tons of frames -->
     <param name="sync_sink" value="false"/>

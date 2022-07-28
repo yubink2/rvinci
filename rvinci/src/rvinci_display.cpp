@@ -193,7 +193,7 @@ void rvinciDisplay::onInitialize()
   start_measurement_PSM_[_RIGHT] = false;
   gravity_published_ = false;
   wrench_published_ = false;
-  MTM_mm_ = false;
+  MTM_mm_ = true;
   coag_init_ = true;
 
   measurement_status_ = _BEGIN;
@@ -636,8 +636,8 @@ void rvinciDisplay::onDisable()
 visualization_msgs::Marker rvinciDisplay::makeMarker(geometry_msgs::Pose p, int id)
 {
   visualization_msgs::Marker marker;
-  // marker.header.frame_id = "base_link";
-  marker.header.frame_id = "jhu_daVinci_stereo_frame";
+  marker.header.frame_id = "base_link";
+  // marker.header.frame_id = "jhu_daVinci_stereo_frame";
   marker.header.stamp = ros::Time::now();
   marker.ns = "basic_shapes";
   marker.id = id;
@@ -730,64 +730,64 @@ void rvinciDisplay::publishMeasurementMarkers()
   distance_pose.orientation.x = distance_pose.orientation.y = distance_pose.orientation.z = 0.0;
   distance_pose.orientation.w = 1.0;
 
-  // if (MTM_mm_) {  // MTM measurement
-  //   // ROS_INFO_STREAM("MTM measurement");
-  //   switch (measurement_status_)
-  //   {
-  //     case _BEGIN:
-  //       marker_arr.markers.push_back( deleteMarker(_DELETE) );
-  //       break;
-  //     case _START_MEASUREMENT:
-  //       marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
-  //       marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _START_POINT) );
-  //       measurement_start_ = cursor_[marker_side_];
-  //       break;
-  //     case _MOVING:
-  //       marker_arr.markers.push_back( makeTextMessage(text_pose, "moving", _STATUS_TEXT) );
-  //       marker_arr.markers.push_back( makeTextMessage(distance_pose, 
-  //         std::to_string(calculateDistance(measurement_start_, cursor_[marker_side_])*1.45)+" cm", _DISTANCE_TEXT) );
-  //       marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
-  //       marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _END_POINT) );
-  //       marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, cursor_[marker_side_].position, _LINE) );
-  //       measurement_end_ = cursor_[marker_side_];
-  //       break;
-  //     case _END_MEASUREMENT:
-  //       marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
-  //       marker_arr.markers.push_back( makeTextMessage(distance_pose, 
-  //         std::to_string(calculateDistance(measurement_start_, measurement_end_)*1.45)+" cm", _DISTANCE_TEXT) );
-  //       marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
-  //       marker_arr.markers.push_back( makeMarker(measurement_end_, _END_POINT) );
-  //       marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, measurement_end_.position, _LINE) );
-  //       break;
-  //   }
-  // } 
-  // else {  // PSM measurement
-  //   // ROS_INFO_STREAM("PSM measurement");
-  //   switch(measurement_status_PSM_)
-  //   {
-  //     case _BEGIN:
-  //       marker_arr.markers.push_back( deleteMarker(_DELETE) );
-  //       break;
-  //     case _START_MEASUREMENT:
-  //       marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
-  //       // marker_arr.markers.push_back( makeMarker(PSM_pose_start_, _START_POINT) );
-  //       // marker_arr.markers.push_back( makeMarker(PSM_pose_end_, _END_POINT) );
-  //       marker_arr.markers.push_back( makeTextMessage(distance_pose, 
-  //         std::to_string( (calculateDistance(PSM_pose_start_, PSM_pose_end_)-.150)*100 )+" cm", _DISTANCE_TEXT) );
-  //       // marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
-  //       break;
-  //     case _END_MEASUREMENT:
-  //       marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
-  //       marker_arr.markers.push_back( makeTextMessage(distance_pose, 
-  //         std::to_string( (calculateDistance(PSM_pose_start_, PSM_pose_end_)-.150)*100 )+" cm", _DISTANCE_TEXT) );
-  //       // marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
-  //       break;
-  //   }
-  // }
+  if (MTM_mm_) {  // MTM measurement
+    // ROS_INFO_STREAM("MTM measurement");
+    switch (measurement_status_)
+    {
+      case _BEGIN:
+        marker_arr.markers.push_back( deleteMarker(_DELETE) );
+        break;
+      case _START_MEASUREMENT:
+        marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
+        marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _START_POINT) );
+        measurement_start_ = cursor_[marker_side_];
+        break;
+      case _MOVING:
+        marker_arr.markers.push_back( makeTextMessage(text_pose, "moving", _STATUS_TEXT) );
+        marker_arr.markers.push_back( makeTextMessage(distance_pose, 
+          std::to_string(calculateDistance(measurement_start_, cursor_[marker_side_])*1.45)+" cm", _DISTANCE_TEXT) );
+        marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
+        marker_arr.markers.push_back( makeMarker(cursor_[marker_side_], _END_POINT) );
+        marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, cursor_[marker_side_].position, _LINE) );
+        measurement_end_ = cursor_[marker_side_];
+        break;
+      case _END_MEASUREMENT:
+        marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
+        marker_arr.markers.push_back( makeTextMessage(distance_pose, 
+          std::to_string(calculateDistance(measurement_start_, measurement_end_)*1.45)+" cm", _DISTANCE_TEXT) );
+        marker_arr.markers.push_back( makeMarker(measurement_start_, _START_POINT) );
+        marker_arr.markers.push_back( makeMarker(measurement_end_, _END_POINT) );
+        marker_arr.markers.push_back( makeLineMarker(measurement_start_.position, measurement_end_.position, _LINE) );
+        break;
+    }
+  } 
+  else {  // PSM measurement
+    // ROS_INFO_STREAM("PSM measurement");
+    switch(measurement_status_PSM_)
+    {
+      case _BEGIN:
+        marker_arr.markers.push_back( deleteMarker(_DELETE) );
+        break;
+      case _START_MEASUREMENT:
+        marker_arr.markers.push_back( makeTextMessage(text_pose, "start measurement", _STATUS_TEXT) );
+        // marker_arr.markers.push_back( makeMarker(PSM_pose_start_, _START_POINT) );
+        // marker_arr.markers.push_back( makeMarker(PSM_pose_end_, _END_POINT) );
+        marker_arr.markers.push_back( makeTextMessage(distance_pose, 
+          std::to_string( (calculateDistance(PSM_pose_start_, PSM_pose_end_)-.150)*100 )+" cm", _DISTANCE_TEXT) );
+        // marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
+        break;
+      case _END_MEASUREMENT:
+        marker_arr.markers.push_back( makeTextMessage(text_pose, "end measurement", _STATUS_TEXT) );
+        marker_arr.markers.push_back( makeTextMessage(distance_pose, 
+          std::to_string( (calculateDistance(PSM_pose_start_, PSM_pose_end_)-.150)*100 )+" cm", _DISTANCE_TEXT) );
+        // marker_arr.markers.push_back( makeLineMarker(PSM_pose_start_.position, PSM_pose_end_.position, _LINE) );
+        break;
+    }
+  }
 
   // PSM marker location test
-  marker_arr.markers.push_back( makeMarker(PSM_pose_start_, _START_POINT) );
-  marker_arr.markers.push_back( makeMarker(PSM_pose_end_, _END_POINT) );
+  // marker_arr.markers.push_back( makeMarker(PSM_pose_start_, _START_POINT) );
+  // marker_arr.markers.push_back( makeMarker(PSM_pose_end_, _END_POINT) );
 
   publisher_markers.publish(marker_arr);
 }
@@ -853,49 +853,49 @@ void rvinciDisplay::MTMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg,
 void rvinciDisplay::PSMCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int i)
 {
   // MTMR-PSM1, MTML-PSM2
-  // if (start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
-  // {
-  //   switch (i)
-  //   {
-  //     case _LEFT: 
-  //       PSM_pose_start_ = msg->pose; 
-  //       break;
-  //     case _RIGHT: 
-  //       PSM_pose_end_ = msg->pose; 
-  //       break;
-  //   }
-  // }
+  if (start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
+  {
+    switch (i)
+    {
+      case _LEFT: 
+        PSM_pose_start_ = msg->pose; 
+        break;
+      case _RIGHT: 
+        PSM_pose_end_ = msg->pose; 
+        break;
+    }
+  }
 
-  ROS_INFO_STREAM("actual PSM start: "<<msg->pose.position.x<<" "<<msg->pose.position.y<<" "<<msg->pose.position.z);
+  // ROS_INFO_STREAM("actual PSM start: "<<msg->pose.position.x<<" "<<msg->pose.position.y<<" "<<msg->pose.position.z);
   // ROS_INFO_STREAM("PSM end: "<<PSM_pose_end_.position.x<<" "<<PSM_pose_end_.position.y<<" "<<PSM_pose_end_.position.z);
 
   // PSM marker location test
   // if (start_measurement_PSM_[_LEFT] && start_measurement_PSM_[_RIGHT] && measurement_status_PSM_ == _START_MEASUREMENT)
   // {
-    switch (i)
-    {
-      case _LEFT: 
-        PSM_pose_start_ = msg->pose; 
-        // PSM_pose_start_.position.x -= 0.15;
-        // PSM_pose_start_.position.y -= 0.15;
-        // PSM_pose_start_.position.z -= 0.15;
-        PSM_pose_start_.position.x *= -20;
-        PSM_pose_start_.position.y *= -20;
-        PSM_pose_start_.position.z *= 100;
-        break;
-      case _RIGHT: 
-        PSM_pose_end_ = msg->pose; 
-        // PSM_pose_end_.position.x -= 0.15;
-        // PSM_pose_end_.position.y -= 0.15;
-        // PSM_pose_end_.position.z -= 0.15;
-        PSM_pose_end_.position.x *= -20;
-        PSM_pose_end_.position.y *= -20;
-        PSM_pose_end_.position.z *= 100;
-        break;
-    }
+    // switch (i)
+    // {
+    //   case _LEFT: 
+    //     PSM_pose_start_ = msg->pose; 
+    //     // PSM_pose_start_.position.x -= 0.15;
+    //     // PSM_pose_start_.position.y -= 0.15;
+    //     // PSM_pose_start_.position.z -= 0.15;
+    //     PSM_pose_start_.position.x *= -20;
+    //     PSM_pose_start_.position.y *= -20;
+    //     PSM_pose_start_.position.z *= 100;
+    //     break;
+    //   case _RIGHT: 
+    //     PSM_pose_end_ = msg->pose; 
+    //     // PSM_pose_end_.position.x -= 0.15;
+    //     // PSM_pose_end_.position.y -= 0.15;
+    //     // PSM_pose_end_.position.z -= 0.15;
+    //     PSM_pose_end_.position.x *= -20;
+    //     PSM_pose_end_.position.y *= -20;
+    //     PSM_pose_end_.position.z *= 100;
+    //     break;
+    // }
   // }
 
-  ROS_INFO_STREAM("PSM start: "<<PSM_pose_start_.position.x<<" "<<PSM_pose_start_.position.y<<" "<<PSM_pose_start_.position.z);
+  // ROS_INFO_STREAM("PSM start: "<<PSM_pose_start_.position.x<<" "<<PSM_pose_start_.position.y<<" "<<PSM_pose_start_.position.z);
   // ROS_INFO_STREAM("PSM end: "<<PSM_pose_end_.position.x<<" "<<PSM_pose_end_.position.y<<" "<<PSM_pose_end_.position.z);
 }
 

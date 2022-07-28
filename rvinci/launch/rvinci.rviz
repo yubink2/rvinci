@@ -39,9 +39,9 @@ Visualization Manager:
   Class: ""
   Displays:
     - Camera Focus:
-        X: 0.8959800004959106
-        Y: -0.07816710323095322
-        Z: 0.06306019425392151
+        X: 0
+        Y: 0
+        Z: 0
       Camera Orientation:
         W: 0.8506349921226501
         X: 0.5257329940795898
@@ -66,7 +66,7 @@ Visualization Manager:
       Cell Size: 1
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -79,7 +79,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -118,7 +118,7 @@ Visualization Manager:
       Marker Topic: /rvinci_markers
       Name: MarkerArray
       Namespaces:
-        basic_shapes: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -186,4 +186,4 @@ Window Geometry:
     collapsed: false
   Width: 1200
   X: 1360
-  Y: 207
+  Y: 170
